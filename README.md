@@ -2,9 +2,8 @@
 
 A [Lenia](https://en.wikipedia.org/wiki/Lenia) cellular automata simulator — tune the simulation parameters live and share a configuration with someone else via URL or a small backend.
 
-<!-- TODO once deployed: -->
-Live at [<url>](). The day-by-day build process is written up in
-[DEVLOG.md](./DEVLOG.md).
+Live at [petri-one.vercel.app](https://petri-one.vercel.app/). The
+day-by-day build process is written up in [DEVLOG.md](./DEVLOG.md).
 
 <!-- TODO once there's a screenshot worth showing — don't force one early: -->
 <!-- ![short alt text](docs/screenshots/example.png) -->
