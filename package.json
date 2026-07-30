@@ -9,10 +9,14 @@
     "build:wasm": "wasm-pack build sim --target web --out-dir ../web/src/wasm",
     "watch:wasm": "nodemon --watch sim/src --watch sim/Cargo.toml --ext rs,toml --delay 300ms --exec \"npm run build:wasm\"",
     "dev": "npm run build:wasm && concurrently -n wasm,web -c yellow,cyan -k \"npm run watch:wasm\" \"npm run dev -w web\"",
-    "build": "npm run build:wasm && npm run build -w web"
+    "build": "npm run build:wasm && npm run build -w web",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.1",
+    "@commitlint/config-conventional": "^21.2.0",
     "concurrently": "^10.0.4",
+    "husky": "^9.1.7",
     "nodemon": "^3.1.14"
   }
 }
