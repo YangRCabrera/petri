@@ -15,12 +15,26 @@ leave the header and the HTML comment until there's real content.
 
 ## Commands
 
-<!-- Fill in the moment the relevant manifest (package.json, Cargo.toml,
-     wrangler.toml, ...) has real scripts. Table format: command —
-     one-line purpose. Keep this identical to README's Commands table;
-     that duplication is exactly what doc-sync checks. For a polyglot
-     project, group rows under a short subheading per toolchain instead
-     of one flat table mixing unrelated command sets. -->
+### Simulation core (Rust/WASM) — `sim/`
+
+| Command | Purpose |
+| --- | --- |
+| `cargo build --target wasm32-unknown-unknown` | Build the crate for WASM |
+| `cargo test` | Run unit tests (native target) |
+| `cargo fmt --check` | Check formatting |
+| `cargo clippy` | Lint |
+
+### Frontend (Vite/TS) — `web/`
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the dev server |
+| `npm run build` | Typecheck (`tsc`) + production build |
+| `npm run preview` | Preview the production build locally |
+
+### Backend (Cloudflare Workers)
+
+<!-- Not scaffolded yet. -->
 
 ## <Framework/toolchain> version notes
 

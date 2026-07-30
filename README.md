@@ -59,20 +59,26 @@ rather than merging unrelated install/run steps into one block.
 <!-- Table: command | purpose. Keep byte-for-byte in sync with CLAUDE.md's
      Commands section — same underlying manifest(s), two audiences. -->
 
-### Simulation core (Rust/WASM)
+### Simulation core (Rust/WASM) — `sim/`
 
 | Command | Purpose |
 | --- | --- |
-| | |
+| `cargo build --target wasm32-unknown-unknown` | Build the crate for WASM |
+| `cargo test` | Run unit tests (native target) |
+| `cargo fmt --check` | Check formatting |
+| `cargo clippy` | Lint |
 
-### Frontend (Vite/TS)
+### Frontend (Vite/TS) — `web/`
 
 | Command | Purpose |
 | --- | --- |
-| | |
+| `npm run dev` | Start the dev server |
+| `npm run build` | Typecheck (`tsc`) + production build |
+| `npm run preview` | Preview the production build locally |
 
 ### Backend (Cloudflare Workers)
 
+<!-- Not scaffolded yet. -->
 | Command | Purpose |
 | --- | --- |
 | | |

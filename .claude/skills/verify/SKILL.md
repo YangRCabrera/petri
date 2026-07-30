@@ -16,34 +16,34 @@ don't stop before the layer that actually exercises the change.
 
 ## 1. Static + unit (always)
 
-### sim (cargo)
+### sim (cargo) — run from `sim/`
 
 ```
-<cargo fmt --check / clippy>
-<cargo build --target wasm32-unknown-unknown / wasm-pack build>
-<cargo test>
+cargo fmt --check
+cargo clippy
+cargo build --target wasm32-unknown-unknown
+cargo test
 ```
 
-### web (vite)
+### web (vite) — run from `web/`
 
 ```
-<lint command>
-<tsc --noEmit>
-<unit test command, single-pass — never the watch-mode variant from an agent>
+<lint command — no linter installed yet>
+tsc --noEmit
+<unit test command — no test framework installed yet>
 ```
 
 ### backend (wrangler)
 
-```
-<lint / typecheck command>
-```
+<!-- Not scaffolded yet. -->
 
 ## 2. Runtime
 
 ```
-<sim: wasm-pack build --dev, or whatever feeds the frontend's WASM import>
-<web: vite dev>
-<backend: wrangler dev>
+web: npm run dev   # run from web/
+<sim: no standalone runtime yet — wasm-pack / the actual JS<->WASM wiring
+      doesn't exist until the frontend imports the crate>
+<backend: wrangler dev — not scaffolded yet>
 ```
 
 <!--
