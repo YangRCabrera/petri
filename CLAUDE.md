@@ -40,6 +40,7 @@ leave the header and the HTML comment until there's real content.
 | --- | --- |
 | `npm run dev` | Start the dev server |
 | `npm run build` | Typecheck (`tsc`) + production build |
+| `npm run lint` | Lint (`oxlint`) |
 | `npm run preview` | Preview the production build locally |
 
 ### Backend (Cloudflare Workers)
@@ -78,6 +79,12 @@ promise, and hands back both the generated `bindings` and the raw
 `WebAssembly.Memory` so callers can read simulation output directly
 instead of paying to serialize it across the boundary every frame.
 
+`scripts/vercel-build.sh` exists because Vercel's build image has no
+Rust toolchain — it installs `rustup` + `wasm-pack` (skipping the
+install if a cache already provides them) before handing off to the
+normal `npm run build`. It's a deploy-time concern only; don't confuse
+it with `npm run build:wasm`, which it calls into.
+
 ## <Core data/error shape — e.g. a Result type>
 
 <!-- Only formalize this once you've hit the same "expected failure"
@@ -104,6 +111,15 @@ instead of paying to serialize it across the boundary every frame.
 <!-- What's actually tested, what's deliberately not, and why — not an
      aspirational list. Update the same day a new test layer is added
      (unit, e2e, a11y, etc.); this is a doc-sync trigger every time. -->
+
+No unit/integration tests exist yet for either `sim` or `web` — there's
+no simulation logic or UI behavior worth testing yet. CI
+(`.github/workflows/ci.yml`) currently only runs static checks on every
+push/PR: for `sim`, `cargo fmt --check`, `cargo clippy -D warnings`, a
+`wasm32-unknown-unknown` build, and `cargo test` (which today just runs
+the crate's default scaffold test); for `web`, `oxlint` and `tsc`
+(via `npm run build`). Add real test coverage — and a CI step for it —
+once there's real logic to cover.
 
 ## Documentation
 

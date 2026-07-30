@@ -29,6 +29,11 @@ same as you'd treat a missing test.
   fundamentally a canvas app plus a parameter panel.
 - **Backend** — Cloudflare Workers. Bare-bones: just enough to store/retrieve
   a shared parameter set, since the data model is flat.
+- **CI** — GitHub Actions (`.github/workflows/ci.yml`): fmt/clippy/build/test
+  for `sim`, lint (`oxlint`)/typecheck/build for `web`.
+- **Deployment** — Vercel, via `vercel.json` + `scripts/vercel-build.sh`
+  (installs Rust/wasm-pack at build time, since Vercel's build image
+  doesn't ship them).
 
 ## Getting started
 
@@ -77,6 +82,7 @@ globally.
 | --- | --- |
 | `npm run dev` | Start the dev server |
 | `npm run build` | Typecheck (`tsc`) + production build |
+| `npm run lint` | Lint (`oxlint`) |
 | `npm run preview` | Preview the production build locally |
 
 ### Backend (Cloudflare Workers)

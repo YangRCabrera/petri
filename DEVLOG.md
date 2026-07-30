@@ -24,6 +24,7 @@ what keeps this navigable once it's more than a handful of entries.
 
 - [Project scaffold](#project-scaffold)
 - [Workspace + WASM build pipeline](#workspace--wasm-build-pipeline)
+- [CI + Vercel deploy config](#ci--vercel-deploy-config)
 - [Misc Patches](#misc-patches)
 
 ## Project scaffold
@@ -87,6 +88,41 @@ re-deriving it from scratch.
   and a bounded smoke test of `npm run dev` confirmed nodemon does its
   initial `build:wasm` pass and `concurrently` brings up the Vite dev
   server alongside it, with clean shutdown on SIGTERM.
+
+## CI + Vercel deploy config
+
+First CI setup for a Rust-in-CI project — no prior template to lean on
+for that half, so it was built from scratch alongside the more familiar
+Node-side CI.
+
+- Added `oxlint` to `web` (a real `npm run lint` script) so CI has an
+  actual lint step, not just typecheck — closes the gap noted in the
+  project-scaffold entry. Same tool the earlier prototype used.
+- `.github/workflows/ci.yml`: two jobs. `sim` runs `cargo fmt --check`,
+  `cargo clippy --all-targets -- -D warnings`, a
+  `wasm32-unknown-unknown` build, and `cargo test`
+  (`dtolnay/rust-toolchain` + `Swatinem/rust-cache` for the toolchain
+  and caching). `web` installs Rust + `wasm-pack`
+  (`jetli/wasm-pack-action`) first, runs `npm run build:wasm`, then
+  lints and typechecks/builds `web` — it has to build the wasm bindings
+  before typecheck can even resolve `wasm-loader.ts`'s import, same
+  dependency order as the local `npm run build` pipeline. Verified
+  `cargo fmt --check` and `cargo clippy -D warnings` both pass locally
+  before trusting them in the workflow. No GitHub remote exists yet, so
+  the workflow hasn't actually run — written and verified locally
+  (each command run by hand) rather than via a real Actions run.
+- Vercel: `vercel.json` (`buildCommand`, `outputDirectory: web/dist`,
+  `installCommand`) plus `scripts/vercel-build.sh`, since Vercel's build
+  image has no Rust toolchain by default — the script installs
+  `rustup` (minimal profile) + `wasm-pack` if they're not already
+  present, then calls the normal `npm run build`. Ran `vercel link
+  --yes` (already logged in via CLI) to create and link the
+  `yangthepersons-projects/petri` project — the CLI added `.vercel` and
+  `.env*` to `.gitignore` on its own. Deliberately did not trigger an
+  actual `vercel deploy`: it costs real build minutes and, since this
+  installs a full Rust toolchain fresh in an environment it's never run
+  in before, it's likely to take a debugging pass to get right — left
+  for a deliberate deploy session rather than doing it inline here.
 
 ## Misc Patches
 
