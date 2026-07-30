@@ -23,6 +23,7 @@ what keeps this navigable once it's more than a handful of entries.
 ## Contents
 
 - [Project scaffold](#project-scaffold)
+- [Workspace + WASM build pipeline](#workspace--wasm-build-pipeline)
 - [Misc Patches](#misc-patches)
 
 ## Project scaffold
@@ -52,6 +53,40 @@ there's something worth sharing.
 - No linter or unit test framework installed for `web/` yet (the vanilla
   Vite template doesn't include either) — noted as a gap in `verify`
   rather than silently skipped.
+
+## Workspace + WASM build pipeline
+
+Wired `sim/` and `web/` together, following the same shape as an earlier
+Conway's Game of Life prototype (workspace root, nodemon watching the
+Rust source, lazy WASM loader exposing raw memory) rather than
+re-deriving it from scratch.
+
+- Converted the repo root into an npm workspace (`workspaces: ["web"]`)
+  with orchestration scripts: `build:wasm` (`wasm-pack build sim
+  --target web --out-dir ../web/src/wasm`), `watch:wasm` (nodemon,
+  watches `sim/src` + `sim/Cargo.toml`, 300ms debounce), `dev`
+  (build once, then run the watcher and `web`'s Vite dev server together
+  via `concurrently`), and `build` (build once, then `web`'s production
+  build). `concurrently` and `nodemon` added as root devDependencies.
+  Crate stays named `sim`, not renamed to match the prototype's `core`.
+- Added `web/src/wasm-loader.ts`: a lazily-initialized, promise-cached
+  loader that returns both the generated bindings and the raw
+  `WebAssembly.Memory` export. Exposing the memory directly (rather than
+  serializing frame data across the JS/WASM boundary) is the whole point
+  of the `mem::swap`-based rendering approach from the original spec —
+  this loader is the file that makes that possible on the JS side.
+  `web/src/wasm/` (the `wasm-pack` output) is gitignored, generated, and
+  never hand-edited.
+- `web/package-lock.json` was replaced by a single root-level
+  `package-lock.json` now that `web` is a workspace member — npm
+  hoists shared deps to the root `node_modules`.
+- Verified end to end: `npm run build:wasm` actually produces
+  `web/src/wasm/sim.{js,d.ts}` + `sim_bg.wasm`; `tsc -p web --noEmit`
+  passes against the real generated output (not just against the
+  hand-written loader in isolation); `npm run build` (root) succeeds;
+  and a bounded smoke test of `npm run dev` confirmed nodemon does its
+  initial `build:wasm` pass and `concurrently` brings up the Vite dev
+  server alongside it, with clean shutdown on SIGTERM.
 
 ## Misc Patches
 

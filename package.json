@@ -1,0 +1,18 @@
+{
+  "name": "petri",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "build:wasm": "wasm-pack build sim --target web --out-dir ../web/src/wasm",
+    "watch:wasm": "nodemon --watch sim/src --watch sim/Cargo.toml --ext rs,toml --delay 300ms --exec \"npm run build:wasm\"",
+    "dev": "npm run build:wasm && concurrently -n wasm,web -c yellow,cyan -k \"npm run watch:wasm\" \"npm run dev -w web\"",
+    "build": "npm run build:wasm && npm run build -w web"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.4",
+    "nodemon": "^3.1.14"
+  }
+}

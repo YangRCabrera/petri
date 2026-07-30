@@ -32,32 +32,35 @@ same as you'd treat a missing test.
 
 ## Getting started
 
-<!--
-Write this the same day `<install> && <run>` first works end to end for
-a clean checkout, not from memory later. Re-verify it before any push
-that touches setup (new env var, new required service, new script). For
-a polyglot project, repeat the numbered-list shape once per toolchain
-rather than merging unrelated install/run steps into one block.
--->
+Prerequisites: a Rust toolchain with the `wasm32-unknown-unknown` target
+(`rustup target add wasm32-unknown-unknown`) and `wasm-pack` installed
+globally.
 
-1. Install dependencies:
+1. Install dependencies (root — this is an npm workspace, `web` is the
+   only member so far):
    ```
-   <command>
+   npm install
    ```
-2. Environment variables (`.env`):
+2. Start everything (builds the WASM bindings once, then runs the
+   wasm watcher and Vite dev server together):
    ```
-   <VAR>=              # what it's for
-   ```
-3. <Any DB migration / seed step>
-4. Start the dev server:
-   ```
-   <command>
+   npm run dev
    ```
 
 ## Commands
 
 <!-- Table: command | purpose. Keep byte-for-byte in sync with CLAUDE.md's
      Commands section — same underlying manifest(s), two audiences. -->
+
+### Workspace (root)
+
+| Command | Purpose |
+| --- | --- |
+| `npm install` | Install all workspace dependencies |
+| `npm run build:wasm` | One-shot `wasm-pack build` of `sim/`, output into `web/src/wasm` |
+| `npm run watch:wasm` | Rebuild the WASM bindings on any change under `sim/src` or `sim/Cargo.toml` |
+| `npm run dev` | Build WASM once, then run the wasm watcher and `web`'s dev server together |
+| `npm run build` | Build WASM once, then production-build `web` |
 
 ### Simulation core (Rust/WASM) — `sim/`
 

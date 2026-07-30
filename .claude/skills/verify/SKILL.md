@@ -39,10 +39,15 @@ tsc --noEmit
 
 ## 2. Runtime
 
+This is an npm workspace (root `package.json`, `web` is the only member
+so far). `npm run dev` from the repo root builds the WASM bindings once,
+then runs the wasm watcher (nodemon, rebuilds on any `sim/src` or
+`sim/Cargo.toml` change) and `web`'s Vite dev server together via
+`concurrently`. Prefer this over running `web`'s `npm run dev` alone
+whenever the change touches `sim/` — otherwise stale bindings get served.
+
 ```
-web: npm run dev   # run from web/
-<sim: no standalone runtime yet — wasm-pack / the actual JS<->WASM wiring
-      doesn't exist until the frontend imports the crate>
+npm run dev        # run from repo root — sim watcher + web dev server together
 <backend: wrangler dev — not scaffolded yet>
 ```
 
