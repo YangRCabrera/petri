@@ -17,30 +17,30 @@ leave the header and the HTML comment until there's real content.
 
 ### Workspace (root)
 
-| Command | Purpose |
-| --- | --- |
-| `npm install` | Install all workspace dependencies |
-| `npm run build:wasm` | One-shot `wasm-pack build` of `sim/`, output into `web/src/wasm` |
+| Command              | Purpose                                                                     |
+| -------------------- | --------------------------------------------------------------------------- |
+| `npm install`        | Install all workspace dependencies                                          |
+| `npm run build:wasm` | One-shot `wasm-pack build` of `sim/`, output into `web/src/wasm`            |
 | `npm run watch:wasm` | Rebuild the WASM bindings on any change under `sim/src` or `sim/Cargo.toml` |
-| `npm run dev` | Build WASM once, then run the wasm watcher and `web`'s dev server together |
-| `npm run build` | Build WASM once, then production-build `web` |
+| `npm run dev`        | Build WASM once, then run the wasm watcher and `web`'s dev server together  |
+| `npm run build`      | Build WASM once, then production-build `web`                                |
 
 ### Simulation core (Rust/WASM) — `sim/`
 
-| Command | Purpose |
-| --- | --- |
-| `cargo build --target wasm32-unknown-unknown` | Build the crate for WASM |
-| `cargo test` | Run unit tests (native target) |
-| `cargo fmt --check` | Check formatting |
-| `cargo clippy` | Lint |
+| Command                                       | Purpose                        |
+| --------------------------------------------- | ------------------------------ |
+| `cargo build --target wasm32-unknown-unknown` | Build the crate for WASM       |
+| `cargo test`                                  | Run unit tests (native target) |
+| `cargo fmt --check`                           | Check formatting               |
+| `cargo clippy`                                | Lint                           |
 
 ### Frontend (Vite/TS) — `web/`
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Start the dev server |
-| `npm run build` | Typecheck (`tsc`) + production build |
-| `npm run lint` | Lint (`oxlint`) |
+| Command           | Purpose                              |
+| ----------------- | ------------------------------------ |
+| `npm run dev`     | Start the dev server                 |
+| `npm run build`   | Typecheck (`tsc`) + production build |
+| `npm run lint`    | Lint (`oxlint`)                      |
 | `npm run preview` | Preview the production build locally |
 
 ### Backend (Cloudflare Workers)
@@ -112,14 +112,20 @@ it with `npm run build:wasm`, which it calls into.
      aspirational list. Update the same day a new test layer is added
      (unit, e2e, a11y, etc.); this is a doc-sync trigger every time. -->
 
-No unit/integration tests exist yet for either `sim` or `web` — there's
-no simulation logic or UI behavior worth testing yet. CI
-(`.github/workflows/ci.yml`) currently only runs static checks on every
-push/PR: for `sim`, `cargo fmt --check`, `cargo clippy -D warnings`, a
-`wasm32-unknown-unknown` build, and `cargo test` (which today just runs
-the crate's default scaffold test); for `web`, `oxlint` and `tsc`
-(via `npm run build`). Add real test coverage — and a CI step for it —
-once there's real logic to cover.
+`sim` has unit tests (`#[cfg(test)] mod tests` alongside the code they
+cover, in `kernel.rs`, `growth.rs`, `grid.rs`, and `universe.rs`) for the
+Lenia math itself: kernel core/shell shape and normalization, the growth
+mapping's peak/symmetry/decay, toroidal coordinate wrapping, and the
+`Universe` update loop (buffer swap, color mapping, convolution —
+including wrap-around — and growth clamping). CI
+(`.github/workflows/ci.yml`) runs `cargo fmt --check`, `cargo clippy -D
+warnings`, a `wasm32-unknown-unknown` build, and `cargo test` (native
+target) on every push/PR.
+
+`web` has no tests yet — there's no UI behavior worth testing yet. CI
+only runs static checks for it: `oxlint` and `tsc` (via `npm run build`).
+Add real coverage — and a CI step for it — once there's real UI logic to
+cover.
 
 ## Documentation
 

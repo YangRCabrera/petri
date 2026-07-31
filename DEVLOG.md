@@ -25,11 +25,12 @@ what keeps this navigable once it's more than a handful of entries.
 - [Project scaffold](#project-scaffold)
 - [Workspace + WASM build pipeline](#workspace--wasm-build-pipeline)
 - [CI + Vercel deploy config](#ci--vercel-deploy-config)
+- [Lenia simulation math](#lenia-simulation-math)
 - [Misc Patches](#misc-patches)
 
 > **AI usage note:** every step across the three sections below happened
 > in one sitting, executed by Claude Code (CC) on direct human
-> instruction. The *shape* of the work — the Rust→WASM→TS pipeline, the
+> instruction. The _shape_ of the work — the Rust→WASM→TS pipeline, the
 > `sim` crate's `cdylib`/`rlib` split, the workspace + nodemon
 > orchestration, and the lazy WASM loader exposing raw memory — follows
 > an earlier Conway's Game of Life prototype built by hand, not
@@ -47,14 +48,14 @@ A Cloudflare Workers backend for sharing configs comes later, once
 there's something worth sharing.
 
 - `sim/`: `cargo new --lib sim`, then set `crate-type = ["cdylib",
-  "rlib"]` in `[lib]` and added `wasm-bindgen`. `rlib` stays alongside
+"rlib"]` in `[lib]` and added `wasm-bindgen`. `rlib` stays alongside
   `cdylib` so `cargo test` can still run natively — a `cdylib`-only
   crate can't be unit tested without a full wasm runtime. Builds clean
   with `cargo build --target wasm32-unknown-unknown`. `cargo new`
   skipped generating a `.gitignore` here (it saw the repo root's
   existing git repo), so added `sim/.gitignore` (`/target`) by hand.
 - `web/`: scaffolded via `npm create vite@latest web -- --template
-  vanilla-ts` — no framework, since this is fundamentally a canvas app
+vanilla-ts` — no framework, since this is fundamentally a canvas app
   with a parameter panel, not a component tree. `tsc --noEmit` and
   `npm run build` both pass on the untouched template.
 - Filled in README/CLAUDE.md's Commands tables and the `verify` skill
@@ -74,7 +75,7 @@ re-deriving it from scratch.
 
 - Converted the repo root into an npm workspace (`workspaces: ["web"]`)
   with orchestration scripts: `build:wasm` (`wasm-pack build sim
-  --target web --out-dir ../web/src/wasm`), `watch:wasm` (nodemon,
+--target web --out-dir ../web/src/wasm`), `watch:wasm` (nodemon,
   watches `sim/src` + `sim/Cargo.toml`, 300ms debounce), `dev` (build
   once, then run the watcher and `web`'s Vite dev server together via
   `concurrently`), and `build` (build once, then `web`'s production
@@ -124,12 +125,50 @@ Node-side CI.
   `yangthepersons-projects/petri` project — the CLI added `.vercel` and
   `.env*` to `.gitignore` on its own.
 - Pushed the repo to GitHub, made it public, and ran a real `vercel
-  deploy` this session instead of leaving it for a separate deploy pass
+deploy` this session instead of leaving it for a separate deploy pass
   as originally planned. Both came back clean on the first try: CI
   green on the actual Actions run (not just the by-hand local checks
   the workflow was written against), and the Vercel build successfully
   bootstrapped `rustup` + `wasm-pack` from scratch on its Rust-less
   image. Live at https://petri-one.vercel.app/.
+
+## Lenia simulation math
+
+Filled in `sim` with the actual Lenia rules: a
+convolution kernel, a growth mapping, toroidal grid coordinates, and the
+`Universe` type tying them into a per-tick update loop.
+
+Unlike the three sections above, the math here wasn't CC's to design. Every function is human-written, derived from Chan, B. W.-C. (2019). _Lenia: Biology of Artificial Life_, _Complex Systems_, 28(3), 251–286 ([arXiv:1812.05433](https://arxiv.org/abs/1812.05433)), now cited in `sim/src/lib.rs`'s crate doc comment and in README's References. CC's part was refining the file layout (the `kernel`/`growth`/`grid`/ `universe` split) and, more importantly, the commenting: the math itself isn't intuitive to me, so function/variable names (`kernel_core`, `growth_target`, `wrap_coordinate`, ...) and doc comments were pushed to be as explicit as possible, otherwise I genuinely can't hold the shape of what each piece is doing. Verbosity here is deliberate, not an AI-ism to trim later.
+
+- `kernel.rs`: `kernel_core` is Lenia's bell-shaped bump
+  `exp(4 - 1/(r(1-r)))`, zero outside `[0, 1)`. `kernel_shell` layers
+  multiple rings on top of it by dividing `[0, 1)` into `ring_weights.len()`
+  bands and re-running `kernel_core` within whichever band a given radius
+  falls into. `generate_kernel_matrix` rasterizes that continuous
+  function onto a `(2r+1) x (2r+1)` grid and normalizes it to sum to 1,
+  so convolving it doesn't push cell states out of range.
+- `growth.rs`: `compute_growth_rate` is the other half of the rule — a
+  Gaussian centered on `growth_target`, rescaled from `[0, 1]` to
+  `[-1, 1]` so a cell's potential lands it somewhere between full decay
+  and full growth depending on distance from the target band.
+- `grid.rs`: `wrap_coordinate` (`rem_euclid`) gives the grid toroidal
+  (wrap-around) edges instead of hard boundaries, used on both axes
+  during convolution.
+- `universe.rs`: `Universe` owns `cell_states` and `buffer_cell_states`
+  and reuses the `mem::swap` pattern from the WASM pipeline entry rather
+  than reallocating a grid-sized buffer every tick —
+  `compute_potential_grid` convolves the kernel and writes potentials
+  into the buffer, `apply_growth` overwrites the buffer in place with
+  the next generation (clamped to `[0, 1]`), and `swap_buffer` makes it
+  current. A separate `colors: Vec<Rgba>` is recomputed from state each
+  tick and exposed read-only via `get_ptr`, the same raw-memory-pointer
+  approach `wasm-loader.ts` already expects.
+- Added `#[cfg(test)]` coverage in all four modules — kernel core/shell
+  shape and normalization, growth peak/symmetry/decay, coordinate
+  wrapping, and the `Universe` loop (buffer swap, color mapping,
+  wrap-around convolution, growth clamping). First real use of the
+  `cargo test` CI step; before this it was only running the crate's
+  default scaffold test.
 
 ## Misc Patches
 

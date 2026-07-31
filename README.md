@@ -58,38 +58,39 @@ globally.
 
 ### Workspace (root)
 
-| Command | Purpose |
-| --- | --- |
-| `npm install` | Install all workspace dependencies |
-| `npm run build:wasm` | One-shot `wasm-pack build` of `sim/`, output into `web/src/wasm` |
+| Command              | Purpose                                                                     |
+| -------------------- | --------------------------------------------------------------------------- |
+| `npm install`        | Install all workspace dependencies                                          |
+| `npm run build:wasm` | One-shot `wasm-pack build` of `sim/`, output into `web/src/wasm`            |
 | `npm run watch:wasm` | Rebuild the WASM bindings on any change under `sim/src` or `sim/Cargo.toml` |
-| `npm run dev` | Build WASM once, then run the wasm watcher and `web`'s dev server together |
-| `npm run build` | Build WASM once, then production-build `web` |
+| `npm run dev`        | Build WASM once, then run the wasm watcher and `web`'s dev server together  |
+| `npm run build`      | Build WASM once, then production-build `web`                                |
 
 ### Simulation core (Rust/WASM) — `sim/`
 
-| Command | Purpose |
-| --- | --- |
-| `cargo build --target wasm32-unknown-unknown` | Build the crate for WASM |
-| `cargo test` | Run unit tests (native target) |
-| `cargo fmt --check` | Check formatting |
-| `cargo clippy` | Lint |
+| Command                                       | Purpose                        |
+| --------------------------------------------- | ------------------------------ |
+| `cargo build --target wasm32-unknown-unknown` | Build the crate for WASM       |
+| `cargo test`                                  | Run unit tests (native target) |
+| `cargo fmt --check`                           | Check formatting               |
+| `cargo clippy`                                | Lint                           |
 
 ### Frontend (Vite/TS) — `web/`
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Start the dev server |
-| `npm run build` | Typecheck (`tsc`) + production build |
-| `npm run lint` | Lint (`oxlint`) |
+| Command           | Purpose                              |
+| ----------------- | ------------------------------------ |
+| `npm run dev`     | Start the dev server                 |
+| `npm run build`   | Typecheck (`tsc`) + production build |
+| `npm run lint`    | Lint (`oxlint`)                      |
 | `npm run preview` | Preview the production build locally |
 
 ### Backend (Cloudflare Workers)
 
 <!-- Not scaffolded yet. -->
+
 | Command | Purpose |
-| --- | --- |
-| | |
+| ------- | ------- |
+|         |         |
 
 ## Architecture
 
@@ -102,3 +103,11 @@ globally.
 ## Database
 
 <!-- Only if applicable. Migration workflow, one line. -->
+
+## References
+
+The kernel core/shell construction and growth function (single-channel,
+2D case) implement the formulas from:
+
+Chan, B. W.-C. (2019). Lenia: Biology of Artificial Life.
+_Complex Systems_, 28(3), 251–286. [arXiv:1812.05433](https://arxiv.org/abs/1812.05433)
