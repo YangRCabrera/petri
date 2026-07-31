@@ -26,6 +26,7 @@ what keeps this navigable once it's more than a handful of entries.
 - [Workspace + WASM build pipeline](#workspace--wasm-build-pipeline)
 - [CI + Vercel deploy config](#ci--vercel-deploy-config)
 - [Lenia simulation math](#lenia-simulation-math)
+- [Render loop + blob seeding](#render-loop--blob-seeding)
 - [Misc Patches](#misc-patches)
 
 > **AI usage note:** every step across the three sections below happened
@@ -169,6 +170,42 @@ Unlike the three sections above, the math here wasn't CC's to design. Every func
   wrap-around convolution, growth clamping). First real use of the
   `cargo test` CI step; before this it was only running the crate's
   default scaffold test.
+
+## Render loop + blob seeding
+
+Wired the WASM `Universe` up to an actual `<canvas>`: `main.ts` now
+creates and seeds a `Universe` in place of the Vite starter template,
+and a new `render.ts` owns everything that happens per frame.
+
+- `render.ts`: `setupCanvas` sizes `#sim-canvas` to the grid;
+  `setupUniverseLoop` ticks the `Universe` each frame and blits its
+  color buffer straight out of WASM linear memory into `ImageData`,
+  reusing the same avoid-serialization approach as `wasm-loader.ts`;
+  `setupLifetime` wraps `requestAnimationFrame` with FPS throttling (a
+  frame-interval accumulator, not a fixed `setTimeout`) plus
+  pause/resume. `main.ts` wires the three together, seeds via
+  `add_comet_blob`, and binds Enter to pause/resume. `#sim-canvas` gets
+  `image-rendering: crisp-edges` so the low-res grid doesn't blur when
+  scaled up.
+- `setupLifetime`'s `stop()` and `main.ts`'s `keyup` listener are
+  scaffolding, not finished features: `stop()` isn't called anywhere
+  yet (nothing tears the loop down), and the Enter-to-pause binding is
+  a placeholder for real playback controls, not the intended UI.
+- `Universe::add_comet_blob` (an offset, asymmetric blob with a short
+  nose and a long tail) is what's seeded now, but it wasn't the first
+  thing tried. The first seed was radially symmetric and it collapsed
+  in on itself into static, tiled geometric patterns covering the
+  whole canvas instead of producing a moving glider. Worried
+  initially that this meant the kernel/growth math was wrong,
+  but re-reading section 3.6 of the Lenia paper clarified that's an
+  expected failure mode for symmetric seeds: gliders like Orbium
+  need an asymmetric seed to break the symmetry and establish a
+  heading, which is exactly why `add_comet_blob` replaced it.
+- Chrome's console is flagging `[Violation] 'requestAnimationFrame'
+handler took <N>ms` — the per-tick convolution is already expensive
+  enough to miss frame budget at 60fps. Known, deferred: not worth
+  optimizing before the UI has real controls (start/stop, parameter
+  inputs) to make the sim worth interacting with in the first place.
 
 ## Misc Patches
 
