@@ -18,6 +18,9 @@ deferred — treat a new feature as unfinished until this is updated,
 same as you'd treat a missing test.
 -->
 
+- Renders a live Lenia simulation to canvas, seeded with a comet-shaped
+  blob.
+
 ## Tech stack
 
 - **Simulation core** — Rust, compiled to WASM. Runs the Lenia step and writes

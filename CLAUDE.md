@@ -57,13 +57,20 @@ leave the header and the HTML comment until there's real content.
 
 ## Architecture
 
-<!-- Write this once the shape has repeated enough to name, not on a
-     fixed feature count and not before there's real code to name it
-     from. For a typical CRUD app that's usually the 2nd feature
-     vertical; for a project built as distinct sequential layers (e.g.
-     simulation -> rendering -> editing -> sharing) it's whenever the
-     second layer confirms the boundary the first one implied. Don't
-     design this on paper before any code exists to name. -->
+Three layers, each a separate concern: `sim/` (Rust, compiled to WASM)
+owns the Lenia math and exposes a `Universe` with a raw pointer to its
+color buffer; `web/` (Vite + TS) is the rendering/UI layer on top of
+that; a Cloudflare Workers backend (not yet scaffolded) will eventually
+store/retrieve shared parameter sets.
+
+```
+sim/src/           kernel.rs, growth.rs, grid.rs, universe.rs — Lenia math
+web/src/
+  wasm/            generated bindings (gitignored, wasm-pack output)
+  wasm-loader.ts   lazy WASM init; hands back bindings + raw memory
+  render.ts        canvas setup, per-tick blit loop, RAF lifetime
+  main.ts          wires seeding + playback controls on top of the above
+```
 
 ## Separation of concerns
 
@@ -84,6 +91,15 @@ Rust toolchain — it installs `rustup` + `wasm-pack` (skipping the
 install if a cache already provides them) before handing off to the
 normal `npm run build`. It's a deploy-time concern only; don't confuse
 it with `npm run build:wasm`, which it calls into.
+
+`web/src/render.ts` is the rendering layer between `wasm-loader.ts` and
+the DOM: `setupCanvas` sizes the `<canvas>` to the grid, `setupUniverseLoop`
+ticks the `Universe` and blits its color buffer straight into `ImageData`
+(reading WASM linear memory directly, the same avoid-serialization
+approach as `wasm-loader.ts`), and `setupLifetime` wraps
+`requestAnimationFrame` with FPS throttling and pause/resume. `main.ts`
+should stay limited to wiring — constructing the `Universe`, seeding it,
+hooking up input — not duplicating any of `render.ts`'s per-frame logic.
 
 ## <Core data/error shape — e.g. a Result type>
 
@@ -122,10 +138,10 @@ including wrap-around — and growth clamping). CI
 warnings`, a `wasm32-unknown-unknown` build, and `cargo test` (native
 target) on every push/PR.
 
-`web` has no tests yet — there's no UI behavior worth testing yet. CI
-only runs static checks for it: `oxlint` and `tsc` (via `npm run build`).
-Add real coverage — and a CI step for it — once there's real UI logic to
-cover.
+`web` has no tests yet. `render.ts`'s `setupLifetime` (FPS throttling,
+pause/resume) is the first real candidate — add coverage for it, and a
+CI step, when it does. CI only runs static checks for it: `oxlint` and
+`tsc` (via `npm run build`).
 
 ## Documentation
 
