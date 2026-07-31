@@ -64,6 +64,58 @@ impl Universe {
         universe
     }
 
+    /// Plops a comet-shaped blob: an offset, elongated core with a short
+    /// nose and a long tail trailing behind it, facing `angle_radians`
+    /// (0 = +x, increasing counter-clockwise). Unlike [`Self::add_seed_blob`],
+    /// this has no radial symmetry to break, so it's a better starting shape
+    /// for gliders (e.g. Lenia's "Orbium") that need a consistent heading
+    /// instead of settling into a ring.
+    pub fn add_comet_blob(&mut self, radius: usize, angle_radians: f32) {
+        let center_x = self.width as f32 / 2.0;
+        let center_y = self.height as f32 / 2.0;
+        let r_float = radius as f32;
+
+        let dir_x = angle_radians.cos();
+        let dir_y = angle_radians.sin();
+
+        // Peak sits ahead of center, toward the nose.
+        let peak_x = center_x + dir_x * r_float * 0.3;
+        let peak_y = center_y + dir_y * r_float * 0.3;
+
+        let nose_length = r_float * 0.8;
+        let tail_length = r_float * 1.6;
+        let lateral_radius = r_float * 0.9;
+
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let dx = (x as f32) - peak_x;
+                let dy = (y as f32) - peak_y;
+
+                let forward = dx * dir_x + dy * dir_y;
+                let lateral = -dx * dir_y + dy * dir_x;
+
+                let forward_extent = if forward >= 0.0 {
+                    nose_length
+                } else {
+                    tail_length
+                };
+
+                let normalized_forward = forward / forward_extent;
+                let normalized_lateral = lateral / lateral_radius;
+                let normalized_dist_sq = normalized_forward * normalized_forward
+                    + normalized_lateral * normalized_lateral;
+
+                if normalized_dist_sq <= 1.0 {
+                    let height = f32::exp(-4.0 * normalized_dist_sq);
+                    let index = y * self.width + x;
+                    self.cell_states[index] = height.clamp(0.0, 1.0);
+                }
+            }
+        }
+
+        self.update_colors();
+    }
+
     /// Advances the simulation by one generation: convolve the kernel over
     /// every cell to get its potential, map that through the growth
     /// function, then swap the resulting generation into place.

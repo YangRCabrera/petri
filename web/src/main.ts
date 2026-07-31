@@ -1,60 +1,38 @@
-import './style.css'
-import typescriptLogo from './assets/typescript.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import { setupCounter } from './counter.ts'
+import { setupCanvas, setupLifetime, setupUniverseLoop } from './render';
+import './style.css';
+import { getWasm } from './wasm-loader';
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${typescriptLogo}" class="framework" alt="TypeScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.ts</code> and save to test <code>HMR</code></p>
-  </div>
-  <button id="counter" type="button" class="counter"></button>
-</section>
+const { bindings, memory } = await getWasm();
 
-<div class="ticks"></div>
+const WIDTH = 300;
+const HEIGHT = 300;
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://www.typescriptlang.org" target="_blank">
-          <img class="button-icon" src="${typescriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
-</section>
+const FPS = 60;
 
-<div class="ticks"></div>
-<section id="spacer"></section>
-`
+const universe = bindings.Universe.new(
+  WIDTH,
+  HEIGHT,
+  10, // kernel_radius
+  new Float32Array([1.0]), // ring_weights: single flat ring
+);
+universe.add_comet_blob(9, 0.1); // radius, heading (radians)
 
-setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+const canvas = setupCanvas(WIDTH, HEIGHT);
+const ctx = canvas.getContext('2d')!;
+
+const placeImage = await setupUniverseLoop(
+  ctx,
+  universe,
+  memory,
+  WIDTH,
+  HEIGHT,
+);
+
+const lifetime = setupLifetime(placeImage, FPS);
+lifetime.start();
+
+window.addEventListener('keyup', (e) => {
+  if (!lifetime.isRunning() || e.key !== 'Enter') return;
+  if (lifetime.isPaused()) lifetime.resume();
+  else lifetime.pause();
+});

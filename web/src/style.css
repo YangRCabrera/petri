@@ -294,3 +294,7 @@ code {
     border-right-color: var(--border);
   }
 }
+
+#sim-canvas {
+  image-rendering: crisp-edges;
+}
