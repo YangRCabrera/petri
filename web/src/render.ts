@@ -12,7 +12,7 @@ export function setupCanvas(width: number, height: number) {
  * Builds the per-frame render step: ticks the universe, then blits its
  * color buffer straight out of WASM linear memory onto the canvas.
  */
-export async function setupUniverseLoop(
+export function setupUniverseLoop(
   ctx: CanvasRenderingContext2D,
   universe: Universe,
   memory: WebAssembly.Memory,
@@ -55,7 +55,7 @@ export function setupLifetime(placeImage: () => void, fps: number) {
   function isPaused() {
     return paused;
   }
-  async function loop(time: number) {
+  function loop(time: number) {
     animationId = requestAnimationFrame(loop);
 
     const elapsed = time - lastFrameTime;
@@ -63,7 +63,7 @@ export function setupLifetime(placeImage: () => void, fps: number) {
 
     lastFrameTime = time - (elapsed % frameInterval);
 
-    if (!isPaused()) await placeImage();
+    if (!isPaused()) placeImage();
   }
   function start() {
     running = true;

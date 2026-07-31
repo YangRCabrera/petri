@@ -20,13 +20,7 @@ universe.add_comet_blob(9, 0.1); // radius, heading (radians)
 const canvas = setupCanvas(WIDTH, HEIGHT);
 const ctx = canvas.getContext('2d')!;
 
-const placeImage = await setupUniverseLoop(
-  ctx,
-  universe,
-  memory,
-  WIDTH,
-  HEIGHT,
-);
+const placeImage = setupUniverseLoop(ctx, universe, memory, WIDTH, HEIGHT);
 
 const lifetime = setupLifetime(placeImage, FPS);
 lifetime.start();
