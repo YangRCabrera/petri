@@ -201,6 +201,8 @@ and a new `render.ts` owns everything that happens per frame.
   expected failure mode for symmetric seeds: gliders like Orbium
   need an asymmetric seed to break the symmetry and establish a
   heading, which is exactly why `add_comet_blob` replaced it.
+
+  ![Radially symmetric seed collapsing into a static tiled pattern](docs/screenshots/radially-symmetric-blob.gif)
 - Chrome's console is flagging `[Violation] 'requestAnimationFrame'
 handler took <N>ms` — the per-tick convolution is already expensive
   enough to miss frame budget at 60fps. Known, deferred: not worth
