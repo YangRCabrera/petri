@@ -14,6 +14,9 @@ const universe = bindings.Universe.new(
   HEIGHT,
   10, // kernel_radius
   new Float32Array([1.0]), // ring_weights: single flat ring
+  0.15, // growth_target
+  0.015, // growth_width
+  0.1, // time_step
 );
 universe.add_comet_blob(9, 0.1); // radius, heading (radians)
 

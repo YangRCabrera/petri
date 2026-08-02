@@ -32,18 +32,25 @@ pub struct Universe {
     height: usize,
     kernel: Vec<f32>,
     kernel_radius: usize,
+    growth_target: f32,
+    growth_width: f32,
+    time_step: f32,
 }
 
 #[wasm_bindgen]
 impl Universe {
     /// Builds a `width` x `height` toroidal grid, all cells dead, with a
     /// kernel of radius `kernel_radius` shaped by `ring_weights` (see
-    /// [`generate_kernel_matrix`]).
+    /// [`generate_kernel_matrix`]), and the growth mapping parameters used
+    /// each [`Self::tick`].
     pub fn new(
         width: usize,
         height: usize,
         kernel_radius: usize,
         ring_weights: &[f32],
+        growth_target: f32,
+        growth_width: f32,
+        time_step: f32,
     ) -> Universe {
         let cell_states = vec![0.0; width * height];
         let buffer_cell_states = vec![0.0; width * height];
@@ -59,17 +66,35 @@ impl Universe {
             height,
             kernel,
             kernel_radius,
+            growth_target,
+            growth_width,
+            time_step,
         };
         universe.update_colors();
         universe
     }
 
+    /// Sets the growth mapping's target potential (peak of the growth
+    /// curve), applied starting next [`Self::tick`].
+    pub fn set_growth_target(&mut self, growth_target: f32) {
+        self.growth_target = growth_target;
+    }
+
+    /// Sets the growth mapping's width (spread of the growth curve around
+    /// its target), applied starting next [`Self::tick`].
+    pub fn set_growth_width(&mut self, growth_width: f32) {
+        self.growth_width = growth_width;
+    }
+
+    /// Sets the per-tick integration step, applied starting next
+    /// [`Self::tick`].
+    pub fn set_time_step(&mut self, time_step: f32) {
+        self.time_step = time_step;
+    }
+
     /// Plops a comet-shaped blob: an offset, elongated core with a short
     /// nose and a long tail trailing behind it, facing `angle_radians`
-    /// (0 = +x, increasing counter-clockwise). Unlike [`Self::add_seed_blob`],
-    /// this has no radial symmetry to break, so it's a better starting shape
-    /// for gliders (e.g. Lenia's "Orbium") that need a consistent heading
-    /// instead of settling into a ring.
+    /// (0 = +x, increasing counter-clockwise).
     pub fn add_comet_blob(&mut self, radius: usize, angle_radians: f32) {
         let center_x = self.width as f32 / 2.0;
         let center_y = self.height as f32 / 2.0;
@@ -120,13 +145,9 @@ impl Universe {
     /// every cell to get its potential, map that through the growth
     /// function, then swap the resulting generation into place.
     pub fn tick(&mut self) {
-        let growth_target = 0.15;
-        let growth_width = 0.015;
-        let time_step = 0.1;
-
         self.compute_potential_grid();
 
-        self.apply_growth(growth_target, growth_width, time_step);
+        self.apply_growth(self.growth_target, self.growth_width, self.time_step);
 
         self.swap_buffer();
 
@@ -228,12 +249,15 @@ mod tests {
             height,
             kernel,
             kernel_radius,
+            growth_target: 0.15,
+            growth_width: 0.015,
+            time_step: 0.1,
         }
     }
 
     #[test]
     fn new_seeds_colors_for_a_dead_grid() {
-        let universe = Universe::new(2, 2, 1, &[1.0]);
+        let universe = Universe::new(2, 2, 1, &[1.0], 0.15, 0.015, 0.1);
 
         for color in &universe.colors {
             assert_eq!((color.0, color.1, color.2, color.3), (0, 0, 0, 255));
@@ -319,7 +343,7 @@ mod tests {
 
     #[test]
     fn tick_keeps_state_and_colors_within_valid_ranges() {
-        let mut universe = Universe::new(4, 4, 1, &[1.0]);
+        let mut universe = Universe::new(4, 4, 1, &[1.0], 0.15, 0.015, 0.1);
         universe.cell_states[5] = 0.8;
 
         universe.tick();
