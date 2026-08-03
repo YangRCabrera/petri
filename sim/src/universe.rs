@@ -32,6 +32,7 @@ pub struct Universe {
     height: usize,
     kernel: Vec<f32>,
     kernel_radius: usize,
+    ring_weights: Vec<f32>,
     growth_target: f32,
     growth_width: f32,
     time_step: f32,
@@ -66,6 +67,7 @@ impl Universe {
             height,
             kernel,
             kernel_radius,
+            ring_weights: ring_weights.to_vec(),
             growth_target,
             growth_width,
             time_step,
@@ -90,6 +92,22 @@ impl Universe {
     /// [`Self::tick`].
     pub fn set_time_step(&mut self, time_step: f32) {
         self.time_step = time_step;
+    }
+
+    /// Sets the kernel's radius (in cells) and regenerates it from the
+    /// current ring weights, applied starting next [`Self::tick`].
+    pub fn set_kernel_radius(&mut self, kernel_radius: usize) {
+        self.kernel_radius = kernel_radius;
+        let (kernel, _) = generate_kernel_matrix(self.kernel_radius, &self.ring_weights);
+        self.kernel = kernel;
+    }
+
+    /// Sets the kernel's ring weights and regenerates it at the current
+    /// radius, applied starting next [`Self::tick`].
+    pub fn set_ring_weights(&mut self, ring_weights: &[f32]) {
+        self.ring_weights = ring_weights.to_vec();
+        let (kernel, _) = generate_kernel_matrix(self.kernel_radius, &self.ring_weights);
+        self.kernel = kernel;
     }
 
     /// Plops a comet-shaped blob: an offset, elongated core with a short
@@ -249,6 +267,7 @@ mod tests {
             height,
             kernel,
             kernel_radius,
+            ring_weights: vec![1.0],
             growth_target: 0.15,
             growth_width: 0.015,
             time_step: 0.1,
