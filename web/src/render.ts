@@ -8,9 +8,15 @@ export function setupCanvas(width: number, height: number) {
   return canvas;
 }
 
+const tickMarker = document.querySelector<HTMLElement>('#tick-duration')!;
+
 /**
  * Builds the per-frame render step: ticks the universe, then blits its
  * color buffer straight out of WASM linear memory onto the canvas.
+ *
+ * Also tracks how long `universe.tick()` itself takes against the frame
+ * budget implied by `fps`, smoothed with an EMA so the on-page readout
+ * doesn't flicker frame to frame, and reports it via `#tick-duration`.
  */
 export function setupUniverseLoop(
   ctx: CanvasRenderingContext2D,
@@ -18,11 +24,17 @@ export function setupUniverseLoop(
   memory: WebAssembly.Memory,
   width: number,
   height: number,
+  fps: number,
 ) {
   const memorySize = width * height * 4; // RGBA bytes for the whole grid
+  const budgetMs = 1000 / fps;
+  let smoothedTickMs = budgetMs;
 
   return function () {
+    const tickStart = performance.now();
     universe.tick();
+    const tickMs = performance.now() - tickStart;
+    smoothedTickMs += (tickMs - smoothedTickMs) * 0.1;
 
     const cellsPtr = universe.get_ptr();
     const wasmMemoryArray = new Uint8ClampedArray(
@@ -32,6 +44,11 @@ export function setupUniverseLoop(
     );
     const imageData = new ImageData(wasmMemoryArray, width, height);
     ctx.putImageData(imageData, 0, 0);
+
+    const delta = smoothedTickMs - budgetMs;
+    const sign = delta >= 0 ? '+' : '';
+    tickMarker.textContent = `tick ${smoothedTickMs.toFixed(2)}ms (Δ ${sign}${delta.toFixed(2)}ms)`;
+    tickMarker.classList.toggle('over-budget', delta > 0);
   };
 }
 
