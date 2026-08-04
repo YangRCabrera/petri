@@ -1,31 +1,34 @@
-import { setupCanvas, setupLifetime, setupUniverseLoop } from './render';
-import './style.css';
+import { buildSim } from './build-sim';
 import { getWasm } from './wasm-loader';
+import './style.css';
+import {
+  loadInitialParams,
+  pushParams,
+  readParams,
+  setupParamsSync,
+} from './params';
 
 const { bindings, memory } = await getWasm();
-
 const WIDTH = 300;
 const HEIGHT = 300;
-
 const FPS = 60;
 
-const universe = bindings.Universe.new(
+const params = loadInitialParams();
+
+const { lifetime, universe } = buildSim(
+  params,
   WIDTH,
   HEIGHT,
-  10, // kernel_radius
-  new Float32Array([1.0]), // ring_weights: single flat ring
-  0.15, // growth_target
-  0.015, // growth_width
-  0.1, // time_step
+  FPS,
+  bindings,
+  memory,
 );
-universe.add_comet_blob(9, 0.1); // radius, heading (radians)
 
-const canvas = setupCanvas(WIDTH, HEIGHT);
-const ctx = canvas.getContext('2d')!;
+setupParamsSync(() => {
+  const params = readParams();
+  if (params) pushParams(params, universe);
+});
 
-const placeImage = setupUniverseLoop(ctx, universe, memory, WIDTH, HEIGHT);
-
-const lifetime = setupLifetime(placeImage, FPS);
 lifetime.start();
 
 window.addEventListener('keyup', (e) => {
