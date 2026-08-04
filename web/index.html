@@ -4,11 +4,70 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>web</title>
+    <title>Petri</title>
   </head>
   <body>
     <div id="app">
-      <canvas id="sim-canvas"></canvas>
+      <header id="app-header">
+        <h1>Petri</h1>
+        <p id="app-hint">Press <kbd>Enter</kbd> to pause</p>
+        <p id="tick-duration"></p>
+      </header>
+      <div id="layout">
+        <aside id="controls">
+          <div id="params-form">
+            <label>
+              Growth target
+              <input
+                type="number"
+                id="growth-target"
+                step="0.001"
+                min="0"
+                max="1"
+                value="0.15"
+              />
+            </label>
+            <label>
+              Growth width
+              <input
+                type="number"
+                id="growth-width"
+                step="0.001"
+                min="0.001"
+                value="0.015"
+              />
+            </label>
+            <label>
+              Time step
+              <input
+                type="number"
+                id="time-step"
+                step="0.001"
+                min="0.001"
+                value="0.1"
+              />
+            </label>
+            <label>
+              Kernel radius
+              <input
+                type="number"
+                id="kernel-radius"
+                step="1"
+                min="1"
+                value="10"
+              />
+            </label>
+            <label>
+              Ring weights
+              <input type="text" id="ring-weights" value="1.0" />
+            </label>
+          </div>
+          <p id="params-error" role="alert"></p>
+        </aside>
+        <main id="stage">
+          <canvas id="sim-canvas"></canvas>
+        </main>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
