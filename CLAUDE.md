@@ -69,6 +69,8 @@ web/src/
   wasm/            generated bindings (gitignored, wasm-pack output)
   wasm-loader.ts   lazy WASM init; hands back bindings + raw memory
   render.ts        canvas setup, per-tick blit loop, RAF lifetime
+  params.ts        params form: read/validate, live sync, defaults
+  build-sim.ts     constructs a Universe from GrowthParams + wires render.ts
   main.ts          wires seeding + playback controls on top of the above
 ```
 
@@ -96,10 +98,24 @@ it with `npm run build:wasm`, which it calls into.
 the DOM: `setupCanvas` sizes the `<canvas>` to the grid, `setupUniverseLoop`
 ticks the `Universe` and blits its color buffer straight into `ImageData`
 (reading WASM linear memory directly, the same avoid-serialization
-approach as `wasm-loader.ts`), and `setupLifetime` wraps
-`requestAnimationFrame` with FPS throttling and pause/resume. `main.ts`
-should stay limited to wiring — constructing the `Universe`, seeding it,
-hooking up input — not duplicating any of `render.ts`'s per-frame logic.
+approach as `wasm-loader.ts`), while also timing `universe.tick()` against
+the frame budget (EMA-smoothed) and reporting it into `#tick-duration`;
+`setupLifetime` wraps `requestAnimationFrame` with FPS throttling and
+pause/resume.
+
+`web/src/params.ts` owns the params form (`#params-form`'s growth
+target/width, time step, kernel radius, ring weights inputs): reading
+and validating its current values (`readParams`, writing failures to
+`#params-error`), pushing a validated `GrowthParams` onto a `Universe`
+(`pushParams`), and wiring live re-sync on every input edit
+(`setupParamsSync`). `web/src/build-sim.ts` is the composition point —
+it takes a `GrowthParams` plus the WASM bindings/memory, constructs the
+`Universe`, seeds it, and wires it through `render.ts`'s
+`setupCanvas`/`setupUniverseLoop`/`setupLifetime` to return a ready
+`{ lifetime, universe }`. `main.ts` should stay limited to wiring —
+calling `build-sim.ts`, hooking up `params.ts`'s sync, handling
+top-level input (pause on Enter) — not duplicating any of `render.ts`'s
+per-frame logic.
 
 ## <Core data/error shape — e.g. a Result type>
 
@@ -164,3 +180,8 @@ you know what's missing on purpose versus by accident.
 Format: one bullet per deferred thing, one clause on why it's deferred.
 Delete a bullet the day it actually gets built — don't let it go stale.
 -->
+
+- Loading initial params from the URL (`params.ts`'s `loadInitialParams`
+  always returns hardcoded defaults) — waiting on the Cloudflare Workers
+  backend/share-link design, so there's a real target to encode/decode
+  against instead of guessing a URL scheme now.

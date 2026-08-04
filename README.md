@@ -20,6 +20,11 @@ same as you'd treat a missing test.
 
 - Renders a live Lenia simulation to canvas, seeded with a comet-shaped
   blob.
+- Tune growth target/width, time step, kernel radius, and ring weights
+  from a live sidebar — invalid input is rejected with an inline error,
+  valid edits apply to the running simulation immediately.
+- Press <kbd>Enter</kbd> to pause/resume; a tick-duration readout shows
+  how the simulation step is tracking against the frame budget.
 
 ## Tech stack
 
