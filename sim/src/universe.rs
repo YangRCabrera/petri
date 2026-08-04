@@ -3,9 +3,8 @@
 
 use wasm_bindgen::prelude::*;
 
-use crate::grid::wrap_coordinate;
+use crate::fft_convolution::FftConvolver;
 use crate::growth::compute_growth_rate;
-use crate::kernel::generate_kernel_matrix;
 
 /// Packed RGBA pixel. `#[repr(C)]` pins the field layout so `Universe::get_ptr`
 /// can be read directly out of WASM linear memory as a byte buffer (e.g. into
@@ -30,7 +29,7 @@ pub struct Universe {
     colors: Vec<Rgba>,
     width: usize,
     height: usize,
-    kernel: Vec<f32>,
+    fft_convolver: FftConvolver,
     kernel_radius: usize,
     ring_weights: Vec<f32>,
     growth_target: f32,
@@ -42,8 +41,8 @@ pub struct Universe {
 impl Universe {
     /// Builds a `width` x `height` toroidal grid, all cells dead, with a
     /// kernel of radius `kernel_radius` shaped by `ring_weights` (see
-    /// [`generate_kernel_matrix`]), and the growth mapping parameters used
-    /// each [`Self::tick`].
+    /// [`crate::kernel::generate_kernel_matrix`]), and the growth mapping
+    /// parameters used each [`Self::tick`].
     pub fn new(
         width: usize,
         height: usize,
@@ -57,7 +56,7 @@ impl Universe {
         let buffer_cell_states = vec![0.0; width * height];
         let colors = vec![Rgba(0u8, 0u8, 0u8, 0u8); width * height];
 
-        let (kernel, _) = generate_kernel_matrix(kernel_radius, ring_weights);
+        let fft_convolver = FftConvolver::new(width, height, kernel_radius, ring_weights);
 
         let mut universe = Universe {
             cell_states,
@@ -65,7 +64,7 @@ impl Universe {
             colors,
             width,
             height,
-            kernel,
+            fft_convolver,
             kernel_radius,
             ring_weights: ring_weights.to_vec(),
             growth_target,
@@ -98,16 +97,16 @@ impl Universe {
     /// current ring weights, applied starting next [`Self::tick`].
     pub fn set_kernel_radius(&mut self, kernel_radius: usize) {
         self.kernel_radius = kernel_radius;
-        let (kernel, _) = generate_kernel_matrix(self.kernel_radius, &self.ring_weights);
-        self.kernel = kernel;
+        self.fft_convolver
+            .set_kernel(self.kernel_radius, &self.ring_weights);
     }
 
     /// Sets the kernel's ring weights and regenerates it at the current
     /// radius, applied starting next [`Self::tick`].
     pub fn set_ring_weights(&mut self, ring_weights: &[f32]) {
         self.ring_weights = ring_weights.to_vec();
-        let (kernel, _) = generate_kernel_matrix(self.kernel_radius, &self.ring_weights);
-        self.kernel = kernel;
+        self.fft_convolver
+            .set_kernel(self.kernel_radius, &self.ring_weights);
     }
 
     /// Plops a comet-shaped blob: an offset, elongated core with a short
@@ -199,33 +198,10 @@ impl Universe {
 
     /// Convolves the kernel over every cell, wrapping at the grid edges
     /// (toroidal boundary), and stores each cell's resulting potential into
-    /// `buffer_cell_states`.
+    /// `buffer_cell_states`. See [`FftConvolver`] for the actual math.
     fn compute_potential_grid(&mut self) {
-        let kernel_size = 2 * self.kernel_radius + 1;
-        let radius_signed = self.kernel_radius as isize;
-
-        for world_y in 0..self.height {
-            for world_x in 0..self.width {
-                let mut weighted_sum = 0f32;
-
-                for delta_y in -radius_signed..=radius_signed {
-                    for delta_x in -radius_signed..=radius_signed {
-                        let target_x = wrap_coordinate((world_x as isize) - delta_x, self.width);
-                        let target_y = wrap_coordinate((world_y as isize) - delta_y, self.height);
-
-                        let kernel_x = (delta_x + radius_signed) as usize;
-                        let kernel_y = (delta_y + radius_signed) as usize;
-
-                        let cell_value = self.cell_states[target_y * self.width + target_x];
-                        let kernel_weight = self.kernel[kernel_y * kernel_size + kernel_x];
-
-                        weighted_sum += kernel_weight * cell_value;
-                    }
-                }
-
-                self.buffer_cell_states[world_y * self.width + world_x] = weighted_sum;
-            }
-        }
+        self.fft_convolver
+            .convolve(&self.cell_states, &mut self.buffer_cell_states);
     }
 
     /// Maps each cell's potential (currently sitting in
@@ -252,26 +228,11 @@ impl Universe {
 mod tests {
     use super::*;
 
-    fn make_universe(
-        width: usize,
-        height: usize,
-        kernel_radius: usize,
-        kernel: Vec<f32>,
-    ) -> Universe {
-        let cell_count = width * height;
-        Universe {
-            cell_states: vec![0.0; cell_count],
-            buffer_cell_states: vec![0.0; cell_count],
-            colors: vec![Rgba(0, 0, 0, 0); cell_count],
-            width,
-            height,
-            kernel,
-            kernel_radius,
-            ring_weights: vec![1.0],
-            growth_target: 0.15,
-            growth_width: 0.015,
-            time_step: 0.1,
-        }
+    /// Builds a `Universe` for tests that don't care about the convolution
+    /// kernel's shape (swap/color/growth tests) — see `fft_convolution`'s
+    /// own test module for kernel/convolution correctness coverage.
+    fn make_universe(width: usize, height: usize) -> Universe {
+        Universe::new(width, height, 0, &[1.0], 0.15, 0.015, 0.1)
     }
 
     #[test]
@@ -285,7 +246,7 @@ mod tests {
 
     #[test]
     fn swap_buffer_swaps_cell_and_buffer_states() {
-        let mut universe = make_universe(2, 1, 0, vec![0.0]);
+        let mut universe = make_universe(2, 1);
         universe.cell_states = vec![1.0, 2.0];
         universe.buffer_cell_states = vec![3.0, 4.0];
 
@@ -297,7 +258,7 @@ mod tests {
 
     #[test]
     fn update_colors_maps_state_to_expected_channels() {
-        let mut universe = make_universe(2, 1, 0, vec![0.0]);
+        let mut universe = make_universe(2, 1);
         universe.cell_states = vec![0.0, 1.0];
 
         universe.update_colors();
@@ -324,40 +285,13 @@ mod tests {
 
     #[test]
     fn apply_growth_clamps_result_to_valid_range() {
-        let mut universe = make_universe(1, 1, 0, vec![0.0]);
+        let mut universe = make_universe(1, 1);
         universe.cell_states = vec![0.99];
         universe.buffer_cell_states = vec![0.15]; // potential sitting exactly at the growth target
 
         universe.apply_growth(0.15, 0.015, 1.0);
 
         assert_eq!(universe.buffer_cell_states[0], 1.0);
-    }
-
-    #[test]
-    fn compute_potential_grid_identity_kernel_copies_state() {
-        // 3x3 kernel with weight 1 only at its center: each cell's potential
-        // should just be that cell's own current state.
-        let mut kernel = vec![0.0; 9];
-        kernel[4] = 1.0;
-        let mut universe = make_universe(3, 3, 1, kernel);
-        universe.cell_states = vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
-
-        universe.compute_potential_grid();
-
-        assert_eq!(universe.buffer_cell_states, universe.cell_states);
-    }
-
-    #[test]
-    fn compute_potential_grid_wraps_around_edges() {
-        // Kernel weighted only toward delta_x = -1 on its middle row, so
-        // each output cell should pick up its left-wrapping neighbor's state.
-        let kernel = vec![0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0];
-        let mut universe = make_universe(3, 1, 1, kernel);
-        universe.cell_states = vec![10.0, 20.0, 30.0];
-
-        universe.compute_potential_grid();
-
-        assert_eq!(universe.buffer_cell_states, vec![30.0, 10.0, 20.0]);
     }
 
     #[test]

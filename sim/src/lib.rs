@@ -12,6 +12,7 @@
 //! B. W.-C. (2019). Lenia: Biology of Artificial Life. _Complex Systems_,
 //! 28(3), 251–286. [arXiv:1812.05433](https://arxiv.org/abs/1812.05433)
 
+mod fft_convolution;
 mod grid;
 mod growth;
 mod kernel;
