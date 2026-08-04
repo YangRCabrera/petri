@@ -27,6 +27,7 @@ what keeps this navigable once it's more than a handful of entries.
 - [CI + Vercel deploy config](#ci--vercel-deploy-config)
 - [Lenia simulation math](#lenia-simulation-math)
 - [Render loop + blob seeding](#render-loop--blob-seeding)
+- [Live parameter controls](#live-parameter-controls)
 - [Misc Patches](#misc-patches)
 
 > **AI usage note:** every step across the three sections below happened
@@ -203,13 +204,67 @@ and a new `render.ts` owns everything that happens per frame.
   heading, which is exactly why `add_comet_blob` replaced it.
 
   ![Radially symmetric seed collapsing into a static tiled pattern](docs/screenshots/radially-symmetric-blob.gif)
+
 - Chrome's console is flagging `[Violation] 'requestAnimationFrame'
 handler took <N>ms` — the per-tick convolution is already expensive
   enough to miss frame budget at 60fps. Known, deferred: not worth
   optimizing before the UI has real controls (start/stop, parameter
   inputs) to make the sim worth interacting with in the first place.
 
+## Live parameter controls
+
+Made growth/kernel parameters runtime-tunable. `Universe`
+gained setters instead of only accepting them at construction, a
+`web/src/params.ts` form reads/validates/pushes edits live, and a
+sidebar UI replaced the bare canvas. This is the render loop entry's
+deferred "real controls" item, and closes the gap between the
+seeded-blob demo and README's "tune the simulation parameters live"
+pitch.
+
+- `sim/src/universe.rs`: pulled `growth_target`, `growth_width`, and
+  `time_step` out of hard-coded locals inside `tick()` into
+  `Universe::new` fields, with `set_growth_target`/`set_growth_width`/
+  `set_time_step` setters. `kernel_radius`/`ring_weights` got the same
+  treatment (`set_kernel_radius`/`set_ring_weights`), except those two
+  also regenerate the kernel matrix on set since it's precomputed from
+  them. Setters over reconstructing a new `Universe` on every edit was
+  the deliberate choice — reconstruction would wipe `cell_states` and
+  restart the sim from a blank grid every time a slider moved, instead
+  of letting the running simulation keep evolving under new rules.
+- `web/src/params.ts`: owns the params form end to end —
+  `readParams` pulls the five fields off their inputs and validates each one
+  individually, writing the first failure to `#params-error`.
+  `pushParams` calls the `Universe` setters above, `setupParamsSync`
+  fires on every `input` event, not on a submit/apply button,
+  so edits really do apply live as the pitch claims.
+  `loadInitialParams` is still a stub returning hard-coded
+  defaults — real URL-based loading is deferred until there's a
+  backend/share-link format to decode against.
+- `web/src/build-sim.ts`: pulled `Universe` construction and blob
+  seeding out of `main.ts` into one function that also wires
+  `render.ts`'s `setupCanvas`/`setupUniverseLoop`/`setupLifetime`
+  together, returning `{ lifetime, universe }`. `main.ts` is left
+  doing only wiring: load params, build the sim, hook `setupParamsSync`
+  up to `pushParams`, start the loop, bind Enter to pause.
+- `render.ts`: added a tick-duration readout — times `universe.tick()`
+  against the frame budget implied by `FPS`, reported into `#tick-duration`
+  with a `+`/`-` delta and an `over-budget` class when the sim is
+  missing its budget. Direct follow-up to the render loop entry's
+  console-violation note. This makes that cost visible on-page instead
+  of only in devtools.
+- UI: added a `#params-form` sidebar (one labeled number/text input per
+  tunable) and an `#app-header` (title, pause hint, tick-duration
+  readout) around the canvas, and rewrote `style.css` from the Vite
+  template's leftover purple/sans-serif theme to a flat mono
+  "engineering paper" look — spacing/type-scale CSS variables, a subtle
+  background grid, light/dark tokens defined once and swapped via
+  `prefers-color-scheme`.
+
 ## Misc Patches
 
 <!-- One line each, newest first: small, cosmetic, no-schema-change
      updates that don't warrant a section of their own. -->
+
+- Removed unused Vite template assets (`hero.png`, `typescript.svg`,
+  `vite.svg`) never referenced after the render-loop rewrite replaced
+  the starter template's markup.
