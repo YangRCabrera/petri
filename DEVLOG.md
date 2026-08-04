@@ -28,6 +28,7 @@ what keeps this navigable once it's more than a handful of entries.
 - [Lenia simulation math](#lenia-simulation-math)
 - [Render loop + blob seeding](#render-loop--blob-seeding)
 - [Live parameter controls](#live-parameter-controls)
+- [FFT convolution + rayon (deferred)](#fft-convolution--rayon-deferred)
 - [Misc Patches](#misc-patches)
 
 > **AI usage note:** every step across the three sections below happened
@@ -259,6 +260,63 @@ pitch.
   "engineering paper" look — spacing/type-scale CSS variables, a subtle
   background grid, light/dark tokens defined once and swapped via
   `prefers-color-scheme`.
+
+## FFT convolution + rayon (deferred)
+
+`Universe::compute_potential_grid`'s direct spatial convolution
+(`O(W*H*K^2)`, every cell looping its full kernel neighborhood) was
+already tripping the render loop entry's frame-budget violation, and was
+only going to get worse. Bigger kernel radius, and eventually
+multi-channel/multi-dimensional Lenia, both multiply straight into
+`K^2`. First real performance pass since that was flagged and deferred.
+
+- Replaced the direct loop with `sim/src/fft_convolution.rs`'s
+  `FftConvolver`: FFT-based circular convolution, `O(W*H*log(W*H))`,
+  independent of kernel size. Toroidal wrap is already circular
+  convolution, so no linear-convolution zero-padding trick was needed —
+  just placing the kernel in wrap-around form before transforming it.
+  `rustfft` is a 1D-only library, so the 2D transform is done via
+  row/column decomposition: FFT every row, transpose (keeps the
+  column-pass data contiguous instead of strided), FFT every row again,
+  transpose back. FFT plans and the kernel's own FFT are cached and only
+  rebuilt on `set_kernel`/construction, not per tick.
+- Went with plain `rustfft` (complex-to-complex) over `realfft`
+  (real-optimized, roughly half the compute/memory): simpler to get
+  right in one pass, and the constant-factor loss doesn't matter next to
+  the algorithmic win over the naive loop. Kept the old naive loop as a
+  test-only reference function in `fft_convolution.rs`'s test module,
+  cross-checked against `FftConvolver`'s output on a non-trivial kernel
+  — the other two fixtures (identity kernel, wrap-around) carried over
+  from `universe.rs`'s old convolution tests unchanged. Tick rate is
+  stable now, confirmed against the render loop entry's `#tick-duration`
+  readout.
+- Also set up `wasm-bindgen-rayon` in the same pass, for a
+  constant-factor multithreading win on top of FFT (parallelizing the
+  FFT row passes plus the flat `apply_growth`/`update_colors` loops).
+  That meant nightly Rust — `wasm-bindgen-rayon` needs `std` built with
+  atomics support (`-Z build-std`), which is nightly-only — scoped to
+  just the wasm32 build via `sim/.cargo/config.toml` plus
+  `RUSTUP_TOOLCHAIN=nightly` on the `build:wasm` script, so native
+  `fmt`/`clippy`/`test` stayed on stable. Also needed an explicit `pub
+use wasm_bindgen_rayon::init_thread_pool` from `sim`'s own crate root
+  — a dependency's `#[wasm_bindgen]` items get dead-code-eliminated
+  unless something in the top-level crate's own reachable API references
+  them, and `initThreadPool` didn't show up in the generated bindings at
+  all until that line was added — plus Cross-Origin-Opener-Policy /
+  Cross-Origin-Embedder-Policy headers, which the thread pool's
+  `SharedArrayBuffer` usage requires.
+- Deferring the rayon half. The thread pool was failing to start at
+  runtime and the root cause didn't shake out — candidates are a
+  wasm-bindgen version mismatch, something in how Vite serves the
+  generated `no-bundler` worker helper, or something else entirely, but
+  nothing confirmed. Given FFT alone already stabilized the tick rate,
+  not worth carrying nightly-toolchain complexity and an unexplained
+  failure mode for a constant-factor win nobody's currently blocked on.
+  Coming back to this only once (a) it's actually necessary again and
+  (b) the failure is understood — not before. Next time convolution cost
+  becomes the bottleneck (most likely once multi-channel Lenia lands),
+  the plan is to reach for `wgpu` instead and hope the GPU path fares
+  better than the thread-pool path did.
 
 ## Misc Patches
 
