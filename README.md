@@ -31,7 +31,8 @@ same as you'd treat a missing test.
 - **Simulation core** — Rust, compiled to WASM. Runs the Lenia step and writes
   raw RGBA output directly into a stable, pointer-exposed buffer (swapped via
   `mem::swap`, not serialized) that the frontend reads straight into a Canvas
-  each frame.
+  each frame. Kernel/state convolution runs via FFT (`rustfft`) rather than a
+  direct spatial loop.
 - **Frontend** — plain Vite + TypeScript. No UI framework; this is
   fundamentally a canvas app plus a parameter panel.
 - **Backend** — Cloudflare Workers. Bare-bones: just enough to store/retrieve

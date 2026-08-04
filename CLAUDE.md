@@ -64,7 +64,7 @@ that; a Cloudflare Workers backend (not yet scaffolded) will eventually
 store/retrieve shared parameter sets.
 
 ```
-sim/src/           kernel.rs, growth.rs, grid.rs, universe.rs — Lenia math
+sim/src/           kernel.rs, growth.rs, grid.rs, universe.rs, fft_convolution.rs — Lenia math
 web/src/
   wasm/            generated bindings (gitignored, wasm-pack output)
   wasm-loader.ts   lazy WASM init; hands back bindings + raw memory
@@ -87,6 +87,16 @@ that talks to it: it lazily `init()`s the WASM module, caches the
 promise, and hands back both the generated `bindings` and the raw
 `WebAssembly.Memory` so callers can read simulation output directly
 instead of paying to serialize it across the boundary every frame.
+
+`sim/src/fft_convolution.rs` owns the kernel/state convolution:
+`FftConvolver` convolves via FFT (`rustfft`, `O(W·H·log(W·H))`) instead of
+the direct spatial loop, using row/column-decomposed 2D FFTs with the
+kernel placed in wrap-around form — toroidal wrap is already circular
+convolution, so this needs no linear-convolution zero-padding. Its own
+FFT plans and the kernel's FFT are cached (rebuilt only on
+`set_kernel`/grid construction, not per tick). `universe.rs` just owns
+orchestration (`compute_potential_grid` is a one-line call into it) —
+don't reintroduce the naive loop there.
 
 `scripts/vercel-build.sh` exists because Vercel's build image has no
 Rust toolchain — it installs `rustup` + `wasm-pack` (skipping the
@@ -145,11 +155,13 @@ per-frame logic.
      (unit, e2e, a11y, etc.); this is a doc-sync trigger every time. -->
 
 `sim` has unit tests (`#[cfg(test)] mod tests` alongside the code they
-cover, in `kernel.rs`, `growth.rs`, `grid.rs`, and `universe.rs`) for the
-Lenia math itself: kernel core/shell shape and normalization, the growth
-mapping's peak/symmetry/decay, toroidal coordinate wrapping, and the
-`Universe` update loop (buffer swap, color mapping, convolution —
-including wrap-around — and growth clamping). CI
+cover, in `kernel.rs`, `growth.rs`, `grid.rs`, `universe.rs`, and
+`fft_convolution.rs`) for the Lenia math itself: kernel core/shell shape
+and normalization, the growth mapping's peak/symmetry/decay, toroidal
+coordinate wrapping, the `Universe` update loop (buffer swap, color
+mapping, growth clamping), and `FftConvolver`'s convolution correctness
+(identity/wrap-around fixtures plus a cross-check against a brute-force
+reference convolution, kept test-only). CI
 (`.github/workflows/ci.yml`) runs `cargo fmt --check`, `cargo clippy -D
 warnings`, a `wasm32-unknown-unknown` build, and `cargo test` (native
 target) on every push/PR.
