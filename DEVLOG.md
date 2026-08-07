@@ -30,6 +30,7 @@ what keeps this navigable once it's more than a handful of entries.
 - [Live parameter controls](#live-parameter-controls)
 - [FFT convolution + rayon (deferred)](#fft-convolution--rayon-deferred)
 - [Responsive layout (mobile controls overlay)](#responsive-layout-mobile-controls-overlay)
+- [Curated species dropdown](#curated-species-dropdown)
 - [Misc Patches](#misc-patches)
 
 > **AI usage note:** every step across the three sections below happened
@@ -364,6 +365,44 @@ visible` correctly, but the sidebar still rendered completely blank
   Recommending `/run-skill-generator` next time this app needs
   browser-driven verification again, so the Playwright setup doesn't
   get rediscovered from scratch.
+
+## Curated species dropdown
+
+`add_comet_blob`'s hand-tuned blob was never a real Lenia creature — it
+looked plausible on load but collapsed on itself after roughly a minute
+of running. Replaced blob seeding entirely with a curated set of known
+species (Orbium unicaudatus, Orbium bicaudatus, Gyrorbium gyrans,
+Scutium solidus) sourced from Bert Chan's reference Bestiary
+(`Chakazul/Lenia`'s `Python/animals.json`), selectable from a new
+dropdown.
+
+- `sim/src/universe.rs`: `add_comet_blob` is gone, replaced by
+  `Universe::load_pattern(pattern_width, pattern_height, cells)` — clears
+  the whole grid, then places a dense row-major cell buffer centered on
+  it, wrapping at the edges like any other placement on the toroidal
+  grid. Generic over any rectangular pattern rather than only the one
+  hand-tuned shape.
+- `web/src/species.ts`: a new `SPECIES` catalog, one entry per creature
+  with its own R/T/m/s/b params plus a pre-decoded `Float32Array` of cell
+  values. No RLE parser shipped — Chan's cell-string format is decoded
+  offline, once, outside the app; the catalog is small and curated, not
+  open to arbitrary uploads (yet), so there's no decoder-correctness
+  surface inside the app itself. That's a deliberate scope cut, not a
+  deferred TODO — a live decoder is only worth building if/when the app
+  needs to accept patterns beyond this curated list.
+- `web/index.html` + `main.ts`: a `#species-select` dropdown at the top
+  of the controls panel, populated from `SPECIES`. Picking an entry calls
+  `params.ts`'s new `applyParams` (the inverse of `readParams` — writes a
+  `GrowthParams` back onto the form's inputs) followed by `pushParams`,
+  then `Universe::load_pattern` — so selecting a species swaps in both
+  its pattern *and* the params it was tuned against, not just the cells.
+  `build-sim.ts` seeds the first catalog entry the same way on page load,
+  replacing the old default `add_comet_blob` call.
+- Species selection always fully replaces whatever's currently running
+  (`load_pattern` clears the grid first) rather than merging or adding a
+  second creature onto the existing state — simplest behavior, and
+  matches how the species picker reads to a user (choosing a creature,
+  not stamping one in).
 
 ## Misc Patches
 
