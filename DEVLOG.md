@@ -29,6 +29,7 @@ what keeps this navigable once it's more than a handful of entries.
 - [Render loop + blob seeding](#render-loop--blob-seeding)
 - [Live parameter controls](#live-parameter-controls)
 - [FFT convolution + rayon (deferred)](#fft-convolution--rayon-deferred)
+- [Responsive layout (mobile controls overlay)](#responsive-layout-mobile-controls-overlay)
 - [Misc Patches](#misc-patches)
 
 > **AI usage note:** every step across the three sections below happened
@@ -317,6 +318,52 @@ use wasm_bindgen_rayon::init_thread_pool` from `sim`'s own crate root
   becomes the bottleneck (most likely once multi-channel Lenia lands),
   the plan is to reach for `wgpu` instead and hope the GPU path fares
   better than the thread-pool path did.
+
+## Responsive layout (mobile controls overlay)
+
+The params sidebar had no mobile treatment: it took 100% width when
+stacked above the canvas with no height cap, so on short viewports it
+could push the canvas down to near-zero, and the header's "Press
+`Enter` to pause" hint doesn't mean anything without a keyboard.
+Discussed a couple of approaches (CSS-only height cap on the sidebar
+vs. a real collapsible panel) before going with collapsible, since it
+keeps the canvas at full size by default instead of always taxing it
+for sidebar space.
+
+- `#controls` (`web/index.html`) changed from an `<aside>` to a native
+  `<details>`/`<summary>` element instead of hand-rolling open/close
+  state in JS — the toggle (click, keyboard, ARIA) comes for free.
+  Desktop hides the `<summary>` via CSS so it's never interactive and
+  the panel just stays permanently expanded, matching the old sidebar
+  look exactly. Mobile (`max-width: 720px`, same breakpoint the CSS
+  already used) turns `#controls` into a `position: absolute` overlay
+  anchored to the top of `#layout` instead of a stacked flex item, so
+  `#stage`/the canvas always gets the full box — toggling the panel no
+  longer resizes the canvas at all, it just floats above it.
+- Wrong turn: first pass tried to keep `<details>` closed by default
+  and force it visually open on desktop purely with CSS (`display:
+  flex` on `#params-form` regardless of the `open` attribute).
+  Computed styles reported `display: flex` and `content-visibility:
+  visible` correctly, but the sidebar still rendered completely blank
+  — confirmed with a Playwright element screenshot before digging
+  further. Chromium hides a closed `<details>`'s content through an
+  internal `content-visibility: hidden` region that isn't the
+  `#params-form` element itself and isn't reachable by author CSS at
+  all, so no override could win. Fixed by flipping the default: `open`
+  is now a real HTML attribute (desktop's summary is unclickable, so
+  it just never gets removed), and a tiny synchronous inline `<script>`
+  right after the `<details>` strips `open` on load only under the
+  mobile breakpoint, before first paint — mobile then rides the same
+  native open/close mechanism Chromium already handles correctly, no
+  more fighting it.
+- Verified with a scratch Playwright script (no project skill for
+  driving this app existed yet) — screenshotted 1280px, 375px, and
+  320px viewports in both collapsed and expanded states, checked
+  `console --errors`-equivalent (`pageerror`/console listeners) came
+  back empty, and confirmed no horizontal overflow at any width.
+  Recommending `/run-skill-generator` next time this app needs
+  browser-driven verification again, so the Playwright setup doesn't
+  get rediscovered from scratch.
 
 ## Misc Patches
 

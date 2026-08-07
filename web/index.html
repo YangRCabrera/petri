@@ -14,7 +14,8 @@
         <p id="tick-duration"></p>
       </header>
       <div id="layout">
-        <aside id="controls">
+        <details id="controls" open>
+          <summary id="controls-toggle">Controls</summary>
           <div id="params-form">
             <label>
               Growth target
@@ -63,7 +64,16 @@
             </label>
           </div>
           <p id="params-error" role="alert"></p>
-        </aside>
+        </details>
+        <script>
+          // Runs synchronously, before first paint, so mobile never flashes
+          // the panel open — desktop's toggle is CSS-hidden, so it stays
+          // open permanently there. Keep the width in sync with style.css's
+          // "max-width: 720px" breakpoint.
+          if (window.matchMedia('(max-width: 720px)').matches) {
+            document.getElementById('controls').removeAttribute('open');
+          }
+        </script>
         <main id="stage">
           <canvas id="sim-canvas"></canvas>
         </main>
