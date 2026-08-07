@@ -1,5 +1,6 @@
-import type { GrowthParams } from './params';
+import { applyParams, pushParams, type GrowthParams } from './params';
 import { setupCanvas, setupLifetime, setupUniverseLoop } from './render';
+import { SPECIES } from './species';
 
 export function buildSim(
   params: GrowthParams,
@@ -18,7 +19,15 @@ export function buildSim(
     params.growthWidth,
     params.timeStep,
   );
-  universe.add_comet_blob(9, 0.1); // radius, heading (radians)
+
+  const firstSpecies = SPECIES[0];
+  universe.load_pattern(
+    firstSpecies.patternWidth,
+    firstSpecies.patternHeight,
+    firstSpecies.cells,
+  );
+  applyParams(firstSpecies.params);
+  pushParams(firstSpecies.params, universe);
 
   const canvas = setupCanvas(WIDTH, HEIGHT);
   const ctx = canvas.getContext('2d')!;

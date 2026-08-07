@@ -70,6 +70,7 @@ web/src/
   wasm-loader.ts   lazy WASM init; hands back bindings + raw memory
   render.ts        canvas setup, per-tick blit loop, RAF lifetime
   params.ts        params form: read/validate, live sync, defaults
+  species.ts       curated Lenia species catalog (params + cell data)
   build-sim.ts     constructs a Universe from GrowthParams + wires render.ts
   main.ts          wires seeding + playback controls on top of the above
 ```
@@ -126,6 +127,26 @@ it takes a `GrowthParams` plus the WASM bindings/memory, constructs the
 calling `build-sim.ts`, hooking up `params.ts`'s sync, handling
 top-level input (pause on Enter) — not duplicating any of `render.ts`'s
 per-frame logic.
+
+`web/src/species.ts` is a curated catalog of known Lenia creatures
+(Orbium unicaudatus/bicaudatus, Gyrorbium gyrans, Scutium solidus)
+sourced from Bert Chan's reference Bestiary (Chakazul/Lenia's
+`animals.json`) — each entry carries its own R/T/m/s/b plus a dense,
+pre-decoded `Float32Array` of cell values. The cells are decoded once
+offline from Chan's RLE cell-string format (Golly-style run-length
+encoding extended with multi-character codes for continuous values)
+rather than shipping a runtime decoder — the catalog is small and
+curated, not open to arbitrary uploads (yet), so there's no
+decoder-correctness surface inside the app itself. `main.ts` owns the
+`#species-select` dropdown: picking an entry calls `params.ts`'s
+`applyParams` (the inverse of `readParams`, syncing the form's inputs to
+a `GrowthParams`) followed by `pushParams`, then `Universe::load_pattern`;
+picking the blank "Comet blob" option resets to `loadInitialParams()`'s
+defaults and calls `Universe::add_comet_blob`. Both
+`Universe::load_pattern` and `Universe::add_comet_blob` clear the whole
+grid before placing their pattern — seeding always replaces whatever was
+running, so switching species mid-simulation can't leave stale cells
+from the previous one.
 
 ## <Core data/error shape — e.g. a Result type>
 
@@ -197,3 +218,7 @@ Delete a bullet the day it actually gets built — don't let it go stale.
   always returns hardcoded defaults) — waiting on the Cloudflare Workers
   backend/share-link design, so there's a real target to encode/decode
   against instead of guessing a URL scheme now.
+- Importing an arbitrary user-supplied Lenia pattern (Chan's RLE
+  cell-string format) — `species.ts`'s catalog is pre-decoded offline for
+  a small curated list; a live decoder is only worth building if/when we
+  want to accept patterns beyond it.

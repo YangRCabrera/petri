@@ -2,11 +2,13 @@ import { buildSim } from './build-sim';
 import { getWasm } from './wasm-loader';
 import './style.css';
 import {
+  applyParams,
   loadInitialParams,
   pushParams,
   readParams,
   setupParamsSync,
 } from './params';
+import { SPECIES } from './species';
 
 const { bindings, memory } = await getWasm();
 const WIDTH = 300;
@@ -27,6 +29,29 @@ const { lifetime, universe } = buildSim(
 setupParamsSync(() => {
   const params = readParams();
   if (params) pushParams(params, universe);
+});
+
+const speciesSelect =
+  document.querySelector<HTMLSelectElement>('#species-select')!;
+for (const species of SPECIES) {
+  const option = document.createElement('option');
+  option.value = species.name;
+  option.textContent = species.name;
+  speciesSelect.appendChild(option);
+}
+
+speciesSelect.addEventListener('change', () => {
+  const species = SPECIES.find((s) => s.name === speciesSelect.value)!;
+  const params = species ? species.params : loadInitialParams();
+
+  applyParams(params);
+  pushParams(params, universe);
+
+  universe.load_pattern(
+    species.patternWidth,
+    species.patternHeight,
+    species.cells,
+  );
 });
 
 lifetime.start();

@@ -41,6 +41,16 @@ export function pushParams(params: GrowthParams, universe: Universe) {
   universe.set_ring_weights(params.ringWeights);
 }
 
+/** Writes `params` onto the form's inputs, the inverse of `readParams` — used when a species preset supplies its own kernel/growth params. */
+export function applyParams(params: GrowthParams) {
+  growthTargetInput.value = String(params.growthTarget);
+  growthWidthInput.value = String(params.growthWidth);
+  timeStepInput.value = String(params.timeStep);
+  kernelRadiusInput.value = String(params.kernelRadius);
+  ringWeightsInput.value = Array.from(params.ringWeights).join(', ');
+  paramsError.textContent = '';
+}
+
 /** Parses a comma-separated list of ring weights, or null if any entry isn't a finite, non-negative number. */
 function parseRingWeights(raw: string): Float32Array | null {
   const parts = raw.split(',').map((part) => part.trim());

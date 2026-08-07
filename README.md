@@ -19,7 +19,9 @@ same as you'd treat a missing test.
 -->
 
 - Renders a live Lenia simulation to canvas, seeded with a comet-shaped
-  blob.
+  blob by default — or pick a known creature (Orbium, Gyrorbium,
+  Scutium, …) from the species dropdown to seed a faithful reproduction,
+  params and all.
 - Tune growth target/width, time step, kernel radius, and ring weights
   from a live sidebar — invalid input is rejected with an inline error,
   valid edits apply to the running simulation immediately.

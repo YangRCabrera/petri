@@ -140,6 +140,56 @@ body {
   display: none;
 }
 
+#species-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.select-wrap {
+  position: relative;
+  display: block;
+}
+
+.select-wrap::after {
+  content: '▾';
+  position: absolute;
+  top: 50%;
+  right: var(--space-2);
+  transform: translateY(-50%);
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+#species-select {
+  appearance: none;
+  width: 100%;
+  font: var(--text-base) / 1.4 var(--mono);
+  text-transform: none;
+  letter-spacing: normal;
+  padding: var(--space-2) var(--space-5) var(--space-2) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+#species-select:hover {
+  border-color: var(--text-dim);
+}
+
+#species-select:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
 #params-form {
   display: flex;
   flex-direction: column;
@@ -248,6 +298,10 @@ body {
 
   #controls[open] > #controls-toggle::after {
     transform: rotate(180deg);
+  }
+
+  #controls[open] #species-field {
+    padding: var(--space-3) var(--space-4) 0;
   }
 
   #controls[open] #params-form,
