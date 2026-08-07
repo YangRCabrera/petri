@@ -28,7 +28,7 @@ cargo test
 ### web (vite) — run from `web/`
 
 ```
-<lint command — no linter installed yet>
+npm run lint        # oxlint
 tsc --noEmit
 <unit test command — no test framework installed yet>
 ```
@@ -67,9 +67,63 @@ setup gets written down, once you've hit it once.
 
 ### Screenshot-based UI verification
 
-<!-- For visual/layout changes: drive the flow headlessly, capture a
-     screenshot, actually read it back — a screenshot never looked at
-     isn't verification. -->
+`chromium-cli` isn't available in this environment — fall back to a
+scratch Playwright script. Chromium itself is already cached locally
+(`~/AppData/Local/ms-playwright`), so only the `playwright` npm package
+needs installing, and only into the scratchpad — don't add it to
+`web`'s own `package.json` for a one-off check:
+
+```bash
+cd <scratchpad>
+npm init -y && npm install playwright@1.62.1 --no-save
+```
+
+Start the dev server from the repo root (`npm run dev`, see above) and
+wait for it to actually serve before driving it:
+
+```bash
+timeout 30 bash -c 'until curl -sf http://localhost:5173 >/dev/null; do sleep 1; done'
+```
+
+```js
+import { chromium } from 'playwright';
+
+const browser = await chromium.launch();
+for (const viewport of [
+  { width: 1280, height: 800 }, // desktop
+  { width: 375, height: 667 }, // mobile
+  { width: 320, height: 480 }, // smallest realistic phone
+]) {
+  const page = await browser.newPage({ viewport });
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
+
+  await page.goto('http://localhost:5173');
+  await page.waitForSelector('#sim-canvas');
+  await page.waitForTimeout(500); // let the WASM sim/render settle
+
+  await page.screenshot({ path: `<scratchpad>/${viewport.width}.png` });
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  console.log(viewport, 'errors:', errors, 'horizontalOverflow:', overflow);
+  await page.close();
+}
+await browser.close();
+```
+
+Then actually **Read** each screenshot back — that step catches what
+computed-style/rect checks miss. E.g. Chromium hides a closed
+`<details>`'s content through an internal `content-visibility` region
+that isn't reachable by author CSS: `getComputedStyle` reported the
+content as `display: flex` / `content-visibility: visible` and
+`getBoundingClientRect` returned a real, in-viewport size, yet nothing
+was actually painted — only the screenshot showed the panel was blank.
+
+Kill the dev server after: `lsof -ti:5173 -sTCP:LISTEN | xargs -r kill`.
 
 ## 3. What "verified" means
 
