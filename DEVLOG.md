@@ -342,9 +342,9 @@ for sidebar space.
   longer resizes the canvas at all, it just floats above it.
 - Wrong turn: first pass tried to keep `<details>` closed by default
   and force it visually open on desktop purely with CSS (`display:
-  flex` on `#params-form` regardless of the `open` attribute).
+flex` on `#params-form` regardless of the `open` attribute).
   Computed styles reported `display: flex` and `content-visibility:
-  visible` correctly, but the sidebar still rendered completely blank
+visible` correctly, but the sidebar still rendered completely blank
   — confirmed with a Playwright element screenshot before digging
   further. Chromium hides a closed `<details>`'s content through an
   internal `content-visibility: hidden` region that isn't the
@@ -373,3 +373,5 @@ for sidebar space.
 - Removed unused Vite template assets (`hero.png`, `typescript.svg`,
   `vite.svg`) never referenced after the render-loop rewrite replaced
   the starter template's markup.
+- Updated `favicon.svg` from Vite default to abstract petri dish +
+  cell representation.
