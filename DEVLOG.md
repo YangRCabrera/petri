@@ -395,7 +395,7 @@ dropdown.
   `params.ts`'s new `applyParams` (the inverse of `readParams` — writes a
   `GrowthParams` back onto the form's inputs) followed by `pushParams`,
   then `Universe::load_pattern` — so selecting a species swaps in both
-  its pattern *and* the params it was tuned against, not just the cells.
+  its pattern _and_ the params it was tuned against, not just the cells.
   `build-sim.ts` seeds the first catalog entry the same way on page load,
   replacing the old default `add_comet_blob` call.
 - Species selection always fully replaces whatever's currently running
@@ -409,8 +409,10 @@ dropdown.
 <!-- One line each, newest first: small, cosmetic, no-schema-change
      updates that don't warrant a section of their own. -->
 
+- Updated `favicon.svg` from Vite default to abstract petri dish +
+  cell representation.
 - Removed unused Vite template assets (`hero.png`, `typescript.svg`,
   `vite.svg`) never referenced after the render-loop rewrite replaced
   the starter template's markup.
-- Updated `favicon.svg` from Vite default to abstract petri dish +
-  cell representation.
+- Updated AGENTS.md with the proper version info for the Rust crate and
+  the Vite/TS frontend.

@@ -1,4 +1,5 @@
 <!-- BEGIN:framework-agent-rules -->
+
 # Read this before writing code
 
 <!--
@@ -15,15 +16,21 @@ Rust/wasm gotcha and a Workers gotcha have nothing to do with each other.
 
 ## Rust / wasm-bindgen (simulation core)
 
-<!-- Fill in the pinned Rust edition + wasm-bindgen/wasm-pack version once
-     Cargo.toml exists. Check `cargo doc --open` before assuming an API
-     shape from training data. -->
+`sim/Cargo.toml` targets edition `2024`, `wasm-bindgen = "0.2.126"`,
+`rustfft = "6"`. No `rust-toolchain.toml` — CI
+(`dtolnay/rust-toolchain@stable`) and local builds float on whatever
+`stable` currently is (this machine: rustc/cargo 1.97.1). `wasm-pack`
+is likewise unpinned (CI's `jetli/wasm-pack-action@v0.4.0` installs
+`latest`; this machine has 0.15.0). If a build breaks on a toolchain
+bump, check `cargo doc --open` for the installed version's actual API
+shape before assuming training-data behavior.
 
 <!-- Add one short, concrete bullet per real breaking change you hit. -->
 
 ## Vite + TypeScript (frontend)
 
-<!-- Fill in the pinned Vite/TS version once package.json exists. -->
+`web/package.json` pins `vite ^8.1.1`, `typescript ~6.0.2`,
+`oxlint ^1.76.0`. Node 22 in CI (`actions/setup-node@v4`).
 
 <!-- Add one short, concrete bullet per real breaking change you hit. -->
 
