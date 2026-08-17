@@ -417,25 +417,25 @@ four curated creatures.
 
 - `sim/src/rle.rs`: `parse_rle` walks the cell-data character by
   character — digits accumulate a run count (capped at `MAX_RUN =
-  2^20` instead of overflowing on a pathological input), `.`/`b`/`o`
+2^20` instead of overflowing on a pathological input), `.`/`b`/`o`
   are the two-state Life shorthand, unprefixed `A`-`X` are states 1-24,
   and a `p`-`y` prefix shifts into states 25-264 in blocks of 24
   (`char_to_value`) — Bert Chan's extension for continuous cell values
   beyond Life's binary alive/dead. `strip_header` drops `#`-comment
   lines and a leading `x = .., y = .., rule = ..` dimensions line, but
-  only checks the *first* non-comment line for that shape, so a bare
+  only checks the _first_ non-comment line for that shape, so a bare
   cell-data string (no header at all — the same format `species.ts`'s
   offline decode script consumes) still parses unchanged. `parse_rle`
   returns ragged rows (RLE conventionally omits a row's trailing
   dead-cell run before `$`/`!`); `decode` is the real entry point,
   padding rows to a common width and returning `(width, height,
-  cells)` for placement.
+cells)` for placement.
 - `sim/src/universe.rs`: `load_pattern`'s clear-then-center-then-place
   logic got pulled out into a shared private `place_pattern`, and the
   new `load_rle(rle: &str) -> Result<(), JsValue>` calls `rle::decode`
   and places through it — except on an empty decode (blank input, or
   input with nothing recognizable as cell data), where it returns an
-  `Err` *instead of* clearing the grid, so a bad paste can't wipe out
+  `Err` _instead of_ clearing the grid, so a bad paste can't wipe out
   whatever's currently running. `load_rle` itself can't run under
   native `cargo test` (its `JsValue` return needs a `wasm-bindgen`
   host), so the actual logic lives in a plain-Rust `try_load_rle`
@@ -460,7 +460,7 @@ four curated creatures.
   `growth.rs`'s `compute_growth_rate` (a Gaussian) are each a single
   hard-coded formula, not a selectable option. The wider Lenia family
   (and Chan's own Bestiary) mixes kernel-core and growth-function
-  *shapes*, not just the R/T/m/s/b numbers this app already exposes —
+  _shapes_, not just the R/T/m/s/b numbers this app already exposes —
   an imported RLE pattern authored against a different shape has no way
   to reproduce faithfully here, it'll just run under this app's one
   fixed exponential-kernel/Gaussian-growth combination. Not something
@@ -472,6 +472,8 @@ four curated creatures.
 <!-- One line each, newest first: small, cosmetic, no-schema-change
      updates that don't warrant a section of their own. -->
 
+- Updated UI with param symbols to aligh with the format used within
+  Bert Chan's reference Bestiary (`Chakazul/Lenia`'s `Python/animals.json`).
 - Updated `favicon.svg` from Vite default to abstract petri dish +
   cell representation.
 - Removed unused Vite template assets (`hero.png`, `typescript.svg`,

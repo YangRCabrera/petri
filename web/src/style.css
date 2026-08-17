@@ -217,6 +217,23 @@ body {
   color: var(--text-h);
 }
 
+.param-symbol {
+  font-family: var(--mono);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.param-hint {
+  font-size: var(--text-xs);
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-dim);
+}
+
+.param-hint code {
+  font-family: var(--mono);
+}
+
 #params-form input:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: 1px;

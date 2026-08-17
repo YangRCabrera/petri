@@ -39,7 +39,7 @@
           </div>
           <div id="params-form">
             <label>
-              Growth target
+              <span>Growth target <span class="param-symbol">(m)</span></span>
               <input
                 type="number"
                 id="growth-target"
@@ -50,7 +50,7 @@
               />
             </label>
             <label>
-              Growth width
+              <span>Growth width <span class="param-symbol">(s)</span></span>
               <input
                 type="number"
                 id="growth-width"
@@ -60,7 +60,7 @@
               />
             </label>
             <label>
-              Time step
+              <span>Time step <span class="param-symbol">(1/T)</span></span>
               <input
                 type="number"
                 id="time-step"
@@ -70,7 +70,7 @@
               />
             </label>
             <label>
-              Kernel radius
+              <span>Kernel radius <span class="param-symbol">(R)</span></span>
               <input
                 type="number"
                 id="kernel-radius"
@@ -80,8 +80,12 @@
               />
             </label>
             <label>
-              Ring weights
+              <span>Ring weights <span class="param-symbol">(b)</span></span>
               <input type="text" id="ring-weights" value="1.0" />
+              <span class="param-hint"
+                >Comma-separated, same as Lenia's <code>b</code> field — paste
+                it directly</span
+              >
             </label>
           </div>
           <p id="params-error" role="alert"></p>
