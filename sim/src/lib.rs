@@ -16,6 +16,7 @@ mod fft_convolution;
 mod grid;
 mod growth;
 mod kernel;
+mod rle;
 mod universe;
 
 pub use universe::Universe;

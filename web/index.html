@@ -22,6 +22,21 @@
               <select id="species-select"></select>
             </span>
           </label>
+          <div id="rle-import-form">
+            <label>
+              Import pattern (RLE)
+              <textarea
+                id="rle-input"
+                rows="3"
+                placeholder="Paste RLE cell data, or choose a file"
+              ></textarea>
+            </label>
+            <div id="rle-import-controls">
+              <input type="file" id="rle-file" accept=".rle,text/plain" />
+              <button type="button" id="rle-import">Import</button>
+            </div>
+            <p id="rle-error" role="alert"></p>
+          </div>
           <div id="params-form">
             <label>
               Growth target

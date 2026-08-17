@@ -9,6 +9,7 @@ import {
   setupParamsSync,
 } from './params';
 import { SPECIES } from './species';
+import { setupRleImport } from './rle-import';
 
 const { bindings, memory } = await getWasm();
 const WIDTH = 300;
@@ -53,6 +54,8 @@ speciesSelect.addEventListener('change', () => {
     species.cells,
   );
 });
+
+setupRleImport(universe);
 
 lifetime.start();
 

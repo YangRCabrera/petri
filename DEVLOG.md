@@ -31,6 +31,7 @@ what keeps this navigable once it's more than a handful of entries.
 - [FFT convolution + rayon (deferred)](#fft-convolution--rayon-deferred)
 - [Responsive layout (mobile controls overlay)](#responsive-layout-mobile-controls-overlay)
 - [Curated species dropdown](#curated-species-dropdown)
+- [RLE pattern import](#rle-pattern-import)
 - [Misc Patches](#misc-patches)
 
 > **AI usage note:** every step across the three sections below happened
@@ -403,6 +404,68 @@ dropdown.
   second creature onto the existing state — simplest behavior, and
   matches how the species picker reads to a user (choosing a creature,
   not stamping one in).
+
+## RLE pattern import
+
+The curated species dropdown entry deliberately scoped out a runtime
+decoder — the catalog was small and pre-decoded offline, so there was no
+decoder-correctness surface inside the app. That scope cut's premise
+(no arbitrary uploads) is what this closes: a real `sim/src/rle.rs`
+decoder plus a `#rle-input`/`#rle-file` import panel, so the app can
+seed any Golly-style RLE pattern a user pastes or uploads, not just the
+four curated creatures.
+
+- `sim/src/rle.rs`: `parse_rle` walks the cell-data character by
+  character — digits accumulate a run count (capped at `MAX_RUN =
+  2^20` instead of overflowing on a pathological input), `.`/`b`/`o`
+  are the two-state Life shorthand, unprefixed `A`-`X` are states 1-24,
+  and a `p`-`y` prefix shifts into states 25-264 in blocks of 24
+  (`char_to_value`) — Bert Chan's extension for continuous cell values
+  beyond Life's binary alive/dead. `strip_header` drops `#`-comment
+  lines and a leading `x = .., y = .., rule = ..` dimensions line, but
+  only checks the *first* non-comment line for that shape, so a bare
+  cell-data string (no header at all — the same format `species.ts`'s
+  offline decode script consumes) still parses unchanged. `parse_rle`
+  returns ragged rows (RLE conventionally omits a row's trailing
+  dead-cell run before `$`/`!`); `decode` is the real entry point,
+  padding rows to a common width and returning `(width, height,
+  cells)` for placement.
+- `sim/src/universe.rs`: `load_pattern`'s clear-then-center-then-place
+  logic got pulled out into a shared private `place_pattern`, and the
+  new `load_rle(rle: &str) -> Result<(), JsValue>` calls `rle::decode`
+  and places through it — except on an empty decode (blank input, or
+  input with nothing recognizable as cell data), where it returns an
+  `Err` *instead of* clearing the grid, so a bad paste can't wipe out
+  whatever's currently running. `load_rle` itself can't run under
+  native `cargo test` (its `JsValue` return needs a `wasm-bindgen`
+  host), so the actual logic lives in a plain-Rust `try_load_rle`
+  returning `Result<(), &'static str>` that the public method just
+  wraps — same split as the rest of the crate's wasm-facing surface.
+- `web/src/rle-import.ts`: wires `#rle-file`'s `change` (reads the
+  picked file's text into `#rle-input`) and `#rle-import`'s `click`
+  (hands the textarea's contents to `universe.load_rle`, catching and
+  displaying any thrown error in `#rle-error`) — textarea and file
+  picker both feed the same import path rather than being two separate
+  flows.
+- Trailing-row handling needed one more pass than expected: `parse_rle`
+  always seeds an initial empty row (so empty input still returns
+  `[[]]`, not `[]`), and a `$` immediately before the pattern-ending `!`
+  pushes an empty row that isn't real pattern data either. Both would've
+  skewed `decode`'s height and thus `place_pattern`'s centering if
+  counted, so `decode` pops trailing empty rows before computing height
+  — covered by `decode_of_empty_input_yields_no_cells` and
+  `decode_drops_phantom_trailing_row_from_a_dollar_right_before_bang`.
+- Exposed a real gap rather than closing one: `kernel.rs`'s
+  `kernel_core` (the exponential bump `exp(4 - 1/(r(1-r)))`) and
+  `growth.rs`'s `compute_growth_rate` (a Gaussian) are each a single
+  hard-coded formula, not a selectable option. The wider Lenia family
+  (and Chan's own Bestiary) mixes kernel-core and growth-function
+  *shapes*, not just the R/T/m/s/b numbers this app already exposes —
+  an imported RLE pattern authored against a different shape has no way
+  to reproduce faithfully here, it'll just run under this app's one
+  fixed exponential-kernel/Gaussian-growth combination. Not something
+  this pass fixed; noted for whenever multi-channel Lenia or a wider
+  import surface makes it worth doing.
 
 ## Misc Patches
 

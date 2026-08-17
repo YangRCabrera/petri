@@ -223,6 +223,84 @@ body {
   border-color: var(--accent);
 }
 
+#rle-import-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+#rle-import-form label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+#rle-input {
+  font: var(--text-base) / 1.4 var(--mono);
+  text-transform: none;
+  letter-spacing: normal;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-h);
+  resize: vertical;
+  resize: none;
+}
+
+#rle-input:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+#rle-import-controls {
+  display: flex;
+  gap: var(--space-2);
+}
+
+#rle-file {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+}
+
+#rle-import {
+  flex: none;
+  font: var(--text-xs) / 1.4 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+#rle-import:hover {
+  border-color: var(--text-dim);
+}
+
+#rle-import:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+#rle-error {
+  min-height: 16px;
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--text-xs);
+}
+
 #params-error {
   min-height: 16px;
   margin: var(--space-3) 0 0;
@@ -270,8 +348,8 @@ body {
     padding: 0;
     border-right: none;
     border-bottom: 1px solid var(--border);
-    box-shadow: 0 var(--space-3) var(--space-4)
-      calc(-1 * var(--space-3)) rgba(0, 0, 0, 0.35);
+    box-shadow: 0 var(--space-3) var(--space-4) calc(-1 * var(--space-3))
+      rgba(0, 0, 0, 0.35);
   }
 
   #controls-toggle {
@@ -302,6 +380,10 @@ body {
 
   #controls[open] #species-field {
     padding: var(--space-3) var(--space-4) 0;
+  }
+
+  #controls[open] #rle-import-form {
+    padding: 0 var(--space-4);
   }
 
   #controls[open] #params-form,

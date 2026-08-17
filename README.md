@@ -22,6 +22,9 @@ same as you'd treat a missing test.
   blob by default — or pick a known creature (Orbium, Gyrorbium,
   Scutium, …) from the species dropdown to seed a faithful reproduction,
   params and all.
+- Import your own pattern — paste RLE cell data or choose a `.rle` file
+  and it seeds the running simulation, with a clear error if it can't
+  be parsed instead of silently doing nothing.
 - Tune growth target/width, time step, kernel radius, and ring weights
   from a live sidebar — invalid input is rejected with an inline error,
   valid edits apply to the running simulation immediately.

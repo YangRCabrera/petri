@@ -65,12 +65,14 @@ store/retrieve shared parameter sets.
 
 ```
 sim/src/           kernel.rs, growth.rs, grid.rs, universe.rs, fft_convolution.rs — Lenia math
+                    rle.rs — RLE pattern decoding
 web/src/
   wasm/            generated bindings (gitignored, wasm-pack output)
   wasm-loader.ts   lazy WASM init; hands back bindings + raw memory
   render.ts        canvas setup, per-tick blit loop, RAF lifetime
   params.ts        params form: read/validate, live sync, defaults
   species.ts       curated Lenia species catalog (params + cell data)
+  rle-import.ts    RLE import panel: file/textarea -> Universe::load_rle
   build-sim.ts     constructs a Universe from GrowthParams + wires render.ts
   main.ts          wires seeding + playback controls on top of the above
 ```
@@ -132,12 +134,9 @@ per-frame logic.
 (Orbium unicaudatus/bicaudatus, Gyrorbium gyrans, Scutium solidus)
 sourced from Bert Chan's reference Bestiary (Chakazul/Lenia's
 `animals.json`) — each entry carries its own R/T/m/s/b plus a dense,
-pre-decoded `Float32Array` of cell values. The cells are decoded once
-offline from Chan's RLE cell-string format (Golly-style run-length
-encoding extended with multi-character codes for continuous values)
-rather than shipping a runtime decoder — the catalog is small and
-curated, not open to arbitrary uploads (yet), so there's no
-decoder-correctness surface inside the app itself. `main.ts` owns the
+pre-decoded `Float32Array` of cell values, decoded once offline rather
+than through the runtime `rle.rs` decoder, since the catalog is small,
+curated, and doesn't need per-load parsing. `main.ts` owns the
 `#species-select` dropdown: picking an entry calls `params.ts`'s
 `applyParams` (the inverse of `readParams`, syncing the form's inputs to
 a `GrowthParams`) followed by `pushParams`, then `Universe::load_pattern`;
@@ -147,6 +146,27 @@ defaults and calls `Universe::add_comet_blob`. Both
 grid before placing their pattern — seeding always replaces whatever was
 running, so switching species mid-simulation can't leave stale cells
 from the previous one.
+
+`sim/src/rle.rs` decodes Golly-style run-length encoded (RLE) patterns,
+extended with Bert Chan's multi-character codes for continuous cell
+values (`.`/`b` = 0, `o` = 1, unprefixed `A`-`X` = states 1-24, prefixed
+`pA`-`yX` = states 25-264) — this is a runtime decoder for
+arbitrary/user-supplied patterns, unlike `species.ts`'s offline-decoded
+catalog. `strip_header` drops `#`-comment lines and the `x = .., y =
+.., rule = ..` dimensions line a full `.rle` file carries, but only
+checks the first non-comment line for that shape, so a bare cell-data
+string (no header) still parses. `parse_rle` returns ragged rows — RLE
+conventionally omits the trailing dead-cell run before a row's `$`/`!`
+— so `decode` is the actual entry point: it pads rows to a common width
+and returns `(width, height, cells)`. `universe.rs`'s `Universe::load_rle`
+calls `decode` and, on a non-empty result, places it
+through the same private `place_pattern` helper `load_pattern` uses
+(same centering/clearing behavior); on an empty result it returns an
+`Err` instead of clearing the grid, so a bad paste can't wipe out
+whatever was already running. `web/src/rle-import.ts` wires the
+`#rle-input` textarea, `#rle-file` file picker (reads the file's text
+into the textarea), and `#rle-import` button to `Universe::load_rle`,
+writing any thrown error into `#rle-error`.
 
 ## <Core data/error shape — e.g. a Result type>
 
@@ -176,13 +196,20 @@ from the previous one.
      (unit, e2e, a11y, etc.); this is a doc-sync trigger every time. -->
 
 `sim` has unit tests (`#[cfg(test)] mod tests` alongside the code they
-cover, in `kernel.rs`, `growth.rs`, `grid.rs`, `universe.rs`, and
-`fft_convolution.rs`) for the Lenia math itself: kernel core/shell shape
-and normalization, the growth mapping's peak/symmetry/decay, toroidal
-coordinate wrapping, the `Universe` update loop (buffer swap, color
-mapping, growth clamping), and `FftConvolver`'s convolution correctness
-(identity/wrap-around fixtures plus a cross-check against a brute-force
-reference convolution, kept test-only). CI
+cover, in `kernel.rs`, `growth.rs`, `grid.rs`, `universe.rs`,
+`fft_convolution.rs`, and `rle.rs`) for the Lenia math itself: kernel
+core/shell shape and normalization, the growth mapping's
+peak/symmetry/decay, toroidal coordinate wrapping, the `Universe` update
+loop (buffer swap, color mapping, growth clamping, `load_rle`
+decode/place/error-without-clearing), `FftConvolver`'s convolution
+correctness (identity/wrap-around fixtures plus a cross-check against a
+brute-force reference convolution, kept test-only), and `rle.rs`'s RLE
+decoding (dead-cell run padding, multi-digit run counts, header/comment
+stripping, prefixed extended-state values). Note that `Universe::load_rle`
+itself can't run under native `cargo test` — its `Result<(), JsValue>`
+return needs a `wasm-bindgen` host — so its logic lives in a private,
+plain-Rust `try_load_rle` that the tests call directly and the public
+method just wraps. CI
 (`.github/workflows/ci.yml`) runs `cargo fmt --check`, `cargo clippy -D
 warnings`, a `wasm32-unknown-unknown` build, and `cargo test` (native
 target) on every push/PR.
@@ -218,7 +245,9 @@ Delete a bullet the day it actually gets built — don't let it go stale.
   always returns hardcoded defaults) — waiting on the Cloudflare Workers
   backend/share-link design, so there's a real target to encode/decode
   against instead of guessing a URL scheme now.
-- Importing an arbitrary user-supplied Lenia pattern (Chan's RLE
-  cell-string format) — `species.ts`'s catalog is pre-decoded offline for
-  a small curated list; a live decoder is only worth building if/when we
-  want to accept patterns beyond it.
+- Selectable kernel-core/growth-function shapes (`kernel.rs`'s
+  `kernel_core` and `growth.rs`'s `compute_growth_rate` are each one
+  hard-coded formula) — RLE import exposed that an imported pattern
+  authored against a different shape from the wider Lenia family can't
+  reproduce faithfully here, it just runs under this app's one fixed
+  exponential-kernel/Gaussian-growth combination.

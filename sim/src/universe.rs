@@ -5,6 +5,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::fft_convolution::FftConvolver;
 use crate::growth::compute_growth_rate;
+use crate::rle;
 
 /// Packed RGBA pixel. `#[repr(C)]` pins the field layout so `Universe::get_ptr`
 /// can be read directly out of WASM linear memory as a byte buffer (e.g. into
@@ -114,21 +115,16 @@ impl Universe {
     /// on the grid and wrapping at the edges like any other placement on
     /// this toroidal grid.
     pub fn load_pattern(&mut self, pattern_width: usize, pattern_height: usize, cells: &[f32]) {
-        self.cell_states.fill(0.0);
+        self.place_pattern(pattern_width, pattern_height, cells);
+    }
 
-        let offset_x = (self.width / 2).saturating_sub(pattern_width / 2);
-        let offset_y = (self.height / 2).saturating_sub(pattern_height / 2);
-
-        for y in 0..pattern_height {
-            for x in 0..pattern_width {
-                let grid_x = (offset_x + x) % self.width;
-                let grid_y = (offset_y + y) % self.height;
-                let index = grid_y * self.width + grid_x;
-                self.cell_states[index] = cells[y * pattern_width + x];
-            }
-        }
-
-        self.update_colors();
+    /// Decodes an RLE-encoded pattern (Golly-style run-length encoding,
+    /// extended with multi-character codes for continuous cell values — see
+    /// [`crate::rle`]) and places it the same way [`Self::load_pattern`]
+    /// does. Errors if `rle` decodes to no cells (empty input, or nothing
+    /// recognizable as pattern data).
+    pub fn load_rle(&mut self, rle: &str) -> Result<(), JsValue> {
+        self.try_load_rle(rle).map_err(JsValue::from_str)
     }
 
     /// Advances the simulation by one generation: convolve the kernel over
@@ -153,6 +149,43 @@ impl Universe {
 }
 
 impl Universe {
+    /// Clears the grid and places a rectangular pattern of continuous cell
+    /// values (row-major, `pattern_width * pattern_height` long), centered
+    /// on the grid and wrapping at the edges like any other placement on
+    /// this toroidal grid. Shared by [`Self::load_pattern`] and
+    /// [`Self::load_rle`].
+    fn place_pattern(&mut self, pattern_width: usize, pattern_height: usize, cells: &[f32]) {
+        self.cell_states.fill(0.0);
+
+        let offset_x = (self.width / 2).saturating_sub(pattern_width / 2);
+        let offset_y = (self.height / 2).saturating_sub(pattern_height / 2);
+
+        for y in 0..pattern_height {
+            for x in 0..pattern_width {
+                let grid_x = (offset_x + x) % self.width;
+                let grid_y = (offset_y + y) % self.height;
+                let index = grid_y * self.width + grid_x;
+                self.cell_states[index] = cells[y * pattern_width + x];
+            }
+        }
+
+        self.update_colors();
+    }
+
+    /// Does the actual decode-validate-place work behind [`Self::load_rle`],
+    /// kept free of `JsValue` (unusable outside a `wasm-bindgen` host, e.g.
+    /// in native `cargo test`) so it stays directly testable.
+    fn try_load_rle(&mut self, rle: &str) -> Result<(), &'static str> {
+        let (pattern_width, pattern_height, cells) = rle::decode(rle);
+
+        if pattern_width == 0 || pattern_height == 0 {
+            return Err("Pattern is empty or could not be parsed.");
+        }
+
+        self.place_pattern(pattern_width, pattern_height, &cells);
+        Ok(())
+    }
+
     fn swap_buffer(&mut self) {
         std::mem::swap(&mut self.cell_states, &mut self.buffer_cell_states);
     }
@@ -279,6 +312,30 @@ mod tests {
         assert_eq!(universe.cell_states[3 * 6 + 2], 0.7);
         assert_eq!(universe.cell_states[3 * 6 + 3], 0.8);
         assert_eq!(universe.cell_states[0], 0.0);
+    }
+
+    #[test]
+    fn load_rle_decodes_centers_and_clears_existing_state() {
+        let mut universe = make_universe(6, 6);
+        universe.cell_states[0] = 1.0; // pre-existing state that should be cleared
+
+        // 2x2: row0 "AB" (states 1,2 -> 1/255, 2/255), row1 "o." (1, then dead)
+        universe.try_load_rle("AB$o!").unwrap();
+
+        assert_eq!(universe.cell_states[2 * 6 + 2], 1.0 / 255.0);
+        assert_eq!(universe.cell_states[2 * 6 + 3], 2.0 / 255.0);
+        assert_eq!(universe.cell_states[3 * 6 + 2], 1.0);
+        assert_eq!(universe.cell_states[3 * 6 + 3], 0.0);
+        assert_eq!(universe.cell_states[0], 0.0);
+    }
+
+    #[test]
+    fn load_rle_of_unparseable_input_errors_instead_of_clearing_the_grid() {
+        let mut universe = make_universe(4, 4);
+        universe.cell_states[0] = 1.0;
+
+        assert!(universe.try_load_rle("").is_err());
+        assert_eq!(universe.cell_states[0], 1.0);
     }
 
     #[test]
