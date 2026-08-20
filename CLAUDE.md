@@ -101,6 +101,21 @@ FFT plans and the kernel's FFT are cached (rebuilt only on
 orchestration (`compute_potential_grid` is a one-line call into it) —
 don't reintroduce the naive loop there.
 
+`sim/src/growth.rs` implements Lenia's three `gn` growth mappings, numbered
+to match Chan's own `gn` convention (`growth_func[gn - 1]` in both his
+`LeniaF.py` and `LeniaND.py` reference scripts) rather than the more
+"obvious" ordering — Polynomial (`gn=1`, the "quad4" bump `(1-x²)⁴` with
+compact support — flat `-1` a full `3 * growth_width` or more from the
+target), Gaussian (`gn=2`, smooth asymptotic falloff, never quite reaching
+-1), Step (`gn=3`, a hard `±1` cutoff at `growth_width`) — each centered on
+`growth_target` and rescaled to `[-1, 1]` so potential near the target
+grows a cell and potential far from it decays it. `universe.rs`'s
+`GrowthFunction` enum (wasm-bindgen-exposed, so JS passes it straight
+through `Universe::new`/`set_growth_function`) picks which one
+`apply_growth` evaluates each tick; `kernel.rs`'s `kernel_core` is still
+the one hard-coded exponential/Gaussian-bump shape — Chan's `kn=2`, not
+`kn=1` (see "Not yet, but on the radar").
+
 `scripts/vercel-build.sh` exists because Vercel's build image has no
 Rust toolchain — it installs `rustup` + `wasm-pack` (skipping the
 install if a cache already provides them) before handing off to the
@@ -198,7 +213,7 @@ writing any thrown error into `#rle-error`.
 `sim` has unit tests (`#[cfg(test)] mod tests` alongside the code they
 cover, in `kernel.rs`, `growth.rs`, `grid.rs`, `universe.rs`,
 `fft_convolution.rs`, and `rle.rs`) for the Lenia math itself: kernel
-core/shell shape and normalization, the growth mapping's
+core/shell shape and normalization, each of the three growth mappings'
 peak/symmetry/decay, toroidal coordinate wrapping, the `Universe` update
 loop (buffer swap, color mapping, growth clamping, `load_rle`
 decode/place/error-without-clearing), `FftConvolver`'s convolution
@@ -245,9 +260,9 @@ Delete a bullet the day it actually gets built — don't let it go stale.
   always returns hardcoded defaults) — waiting on the Cloudflare Workers
   backend/share-link design, so there's a real target to encode/decode
   against instead of guessing a URL scheme now.
-- Selectable kernel-core/growth-function shapes (`kernel.rs`'s
-  `kernel_core` and `growth.rs`'s `compute_growth_rate` are each one
-  hard-coded formula) — RLE import exposed that an imported pattern
-  authored against a different shape from the wider Lenia family can't
-  reproduce faithfully here, it just runs under this app's one fixed
-  exponential-kernel/Gaussian-growth combination.
+- Selectable kernel-core shapes (`kernel.rs`'s `kernel_core` is still one
+  hard-coded exponential/Gaussian-bump formula — Chan's `kn=2` — unlike
+  `growth.rs`'s now-selectable Polynomial/Gaussian/Step growth mappings)
+  — RLE import exposed that an imported pattern authored against a
+  different kernel shape (`kn != 2`) from the wider Lenia family can't
+  reproduce faithfully here yet.

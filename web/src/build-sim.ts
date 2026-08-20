@@ -18,6 +18,7 @@ export function buildSim(
     params.growthTarget,
     params.growthWidth,
     params.timeStep,
+    params.growthFunction,
   );
 
   const firstSpecies = SPECIES[0];

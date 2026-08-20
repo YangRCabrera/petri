@@ -4,7 +4,7 @@
 use wasm_bindgen::prelude::*;
 
 use crate::fft_convolution::FftConvolver;
-use crate::growth::compute_growth_rate;
+use crate::growth::*;
 use crate::rle;
 
 /// Packed RGBA pixel. `#[repr(C)]` pins the field layout so `Universe::get_ptr`
@@ -13,6 +13,19 @@ use crate::rle;
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct Rgba(u8, u8, u8, u8);
+
+/// Which growth mapping [`Universe::apply_growth`] uses each tick — the
+/// three variants Lenia's `gn` selects between (see [`crate::growth`]).
+/// Numeric values match Chan's own `gn` convention (`growth_func[gn - 1]`
+/// in both `LeniaF.py` and `LeniaND.py`) so a value read straight off an
+/// imported pattern's `gn` field selects the right variant.
+#[repr(C)]
+#[wasm_bindgen]
+pub enum GrowthFunction {
+    Polynomial = 1,
+    Gaussian = 2,
+    Step = 3,
+}
 
 /// A Lenia grid: cell states plus the precomputed kernel convolved over them
 /// each tick.
@@ -36,6 +49,7 @@ pub struct Universe {
     growth_target: f32,
     growth_width: f32,
     time_step: f32,
+    growth_function: GrowthFunction,
 }
 
 #[wasm_bindgen]
@@ -44,6 +58,7 @@ impl Universe {
     /// kernel of radius `kernel_radius` shaped by `ring_weights` (see
     /// [`crate::kernel::generate_kernel_matrix`]), and the growth mapping
     /// parameters used each [`Self::tick`].
+    #[allow(clippy::too_many_arguments)] // wasm-bindgen constructors can only take flat primitive args, not a params struct
     pub fn new(
         width: usize,
         height: usize,
@@ -52,6 +67,7 @@ impl Universe {
         growth_target: f32,
         growth_width: f32,
         time_step: f32,
+        growth_function: GrowthFunction,
     ) -> Universe {
         let cell_states = vec![0.0; width * height];
         let buffer_cell_states = vec![0.0; width * height];
@@ -71,6 +87,7 @@ impl Universe {
             growth_target,
             growth_width,
             time_step,
+            growth_function,
         };
         universe.update_colors();
         universe
@@ -92,6 +109,12 @@ impl Universe {
     /// [`Self::tick`].
     pub fn set_time_step(&mut self, time_step: f32) {
         self.time_step = time_step;
+    }
+
+    /// Sets which growth mapping [`Self::tick`] evaluates the potential
+    /// through, applied starting next [`Self::tick`].
+    pub fn set_growth_function(&mut self, growth_function: GrowthFunction) {
+        self.growth_function = growth_function;
     }
 
     /// Sets the kernel's radius (in cells) and regenerates it from the
@@ -221,7 +244,17 @@ impl Universe {
             let old_state = self.cell_states[i];
             let potential = self.buffer_cell_states[i];
 
-            let growth_rate = compute_growth_rate(potential, growth_target, growth_width);
+            let growth_rate = match self.growth_function {
+                GrowthFunction::Gaussian => {
+                    compute_gaussian_growth_rate(potential, growth_target, growth_width)
+                }
+                GrowthFunction::Polynomial => {
+                    compute_polynomial_growth_rate(potential, growth_target, growth_width)
+                }
+                GrowthFunction::Step => {
+                    compute_step_growth_rate(potential, growth_target, growth_width)
+                }
+            };
 
             let new_state = old_state + time_step * growth_rate;
 
@@ -238,12 +271,21 @@ mod tests {
     /// kernel's shape (swap/color/growth tests) — see `fft_convolution`'s
     /// own test module for kernel/convolution correctness coverage.
     fn make_universe(width: usize, height: usize) -> Universe {
-        Universe::new(width, height, 0, &[1.0], 0.15, 0.015, 0.1)
+        Universe::new(
+            width,
+            height,
+            0,
+            &[1.0],
+            0.15,
+            0.015,
+            0.1,
+            GrowthFunction::Gaussian,
+        )
     }
 
     #[test]
     fn new_seeds_colors_for_a_dead_grid() {
-        let universe = Universe::new(2, 2, 1, &[1.0], 0.15, 0.015, 0.1);
+        let universe = Universe::new(2, 2, 1, &[1.0], 0.15, 0.015, 0.1, GrowthFunction::Gaussian);
 
         for color in &universe.colors {
             assert_eq!((color.0, color.1, color.2, color.3), (0, 0, 0, 255));
@@ -340,7 +382,8 @@ mod tests {
 
     #[test]
     fn tick_keeps_state_and_colors_within_valid_ranges() {
-        let mut universe = Universe::new(4, 4, 1, &[1.0], 0.15, 0.015, 0.1);
+        let mut universe =
+            Universe::new(4, 4, 1, &[1.0], 0.15, 0.015, 0.1, GrowthFunction::Gaussian);
         universe.cell_states[5] = 0.8;
 
         universe.tick();

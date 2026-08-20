@@ -19,7 +19,7 @@
           <label id="species-field">
             Species
             <span class="select-wrap">
-              <select id="species-select"></select>
+              <select id="species-select" class="select-input"></select>
             </span>
           </label>
           <div id="rle-import-form">
@@ -38,6 +38,16 @@
             <p id="rle-error" role="alert"></p>
           </div>
           <div id="params-form">
+            <label>
+              <span>Growth function <span class="param-symbol">(gn)</span></span>
+              <span class="select-wrap">
+                <select id="growth-function" class="select-input">
+                  <option value="1">Polynomial</option>
+                  <option value="2">Gaussian</option>
+                  <option value="3">Step</option>
+                </select>
+              </span>
+            </label>
             <label>
               <span>Growth target <span class="param-symbol">(m)</span></span>
               <input

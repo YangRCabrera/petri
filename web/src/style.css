@@ -166,7 +166,7 @@ body {
   pointer-events: none;
 }
 
-#species-select {
+.select-input {
   appearance: none;
   width: 100%;
   font: var(--text-base) / 1.4 var(--mono);
@@ -180,11 +180,11 @@ body {
   cursor: pointer;
 }
 
-#species-select:hover {
+.select-input:hover {
   border-color: var(--text-dim);
 }
 
-#species-select:focus-visible {
+.select-input:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: 1px;
   border-color: var(--accent);

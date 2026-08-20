@@ -2,6 +2,7 @@
 // (Chakazul/Lenia, Python/animals.json)
 
 import type { GrowthParams } from './params';
+import { GrowthFunction } from './wasm/sim';
 
 export interface Species {
   name: string;
@@ -62,6 +63,7 @@ export const SPECIES: Species[] = [
       timeStep: 0.1,
       kernelRadius: 13,
       ringWeights: new Float32Array([1]),
+      growthFunction: GrowthFunction.Gaussian,
     },
   },
   {
@@ -112,6 +114,7 @@ export const SPECIES: Species[] = [
       timeStep: 0.1,
       kernelRadius: 13,
       ringWeights: new Float32Array([1]),
+      growthFunction: GrowthFunction.Gaussian,
     },
   },
   {
@@ -169,6 +172,7 @@ export const SPECIES: Species[] = [
       timeStep: 0.1,
       kernelRadius: 13,
       ringWeights: new Float32Array([1]),
+      growthFunction: GrowthFunction.Gaussian,
     },
   },
   {
@@ -216,6 +220,7 @@ export const SPECIES: Species[] = [
       timeStep: 0.1,
       kernelRadius: 13,
       ringWeights: new Float32Array([1]),
+      growthFunction: GrowthFunction.Gaussian,
     },
   },
 ];

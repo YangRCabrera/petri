@@ -1,4 +1,4 @@
-import type { Universe } from './wasm/sim';
+import { GrowthFunction, type Universe } from './wasm/sim';
 
 export interface GrowthParams {
   growthTarget: number;
@@ -6,8 +6,11 @@ export interface GrowthParams {
   timeStep: number;
   kernelRadius: number;
   ringWeights: Float32Array;
+  growthFunction: GrowthFunction;
 }
 
+const growthFunctionSelect =
+  document.querySelector<HTMLSelectElement>('#growth-function')!;
 const growthTargetInput =
   document.querySelector<HTMLInputElement>('#growth-target')!;
 const growthWidthInput =
@@ -26,6 +29,7 @@ const defaultParams: GrowthParams = {
   timeStep: 0.1,
   kernelRadius: 10,
   ringWeights: new Float32Array([1.0]),
+  growthFunction: GrowthFunction.Gaussian,
 };
 
 export function loadInitialParams() {
@@ -39,6 +43,7 @@ export function pushParams(params: GrowthParams, universe: Universe) {
   universe.set_time_step(params.timeStep);
   universe.set_kernel_radius(params.kernelRadius);
   universe.set_ring_weights(params.ringWeights);
+  universe.set_growth_function(params.growthFunction);
 }
 
 /** Writes `params` onto the form's inputs, the inverse of `readParams` — used when a species preset supplies its own kernel/growth params. */
@@ -48,6 +53,7 @@ export function applyParams(params: GrowthParams) {
   timeStepInput.value = String(params.timeStep);
   kernelRadiusInput.value = String(params.kernelRadius);
   ringWeightsInput.value = Array.from(params.ringWeights).join(', ');
+  growthFunctionSelect.value = String(params.growthFunction);
   paramsError.textContent = '';
 }
 
@@ -71,6 +77,7 @@ export function readParams(): GrowthParams | null {
   const timeStep = timeStepInput.valueAsNumber;
   const kernelRadius = kernelRadiusInput.valueAsNumber;
   const ringWeights = parseRingWeights(ringWeightsInput.value);
+  const growthFunction = Number(growthFunctionSelect.value) as GrowthFunction;
 
   if (!Number.isFinite(growthTarget) || growthTarget < 0 || growthTarget > 1) {
     paramsError.textContent = 'Growth target must be a number between 0 and 1.';
@@ -98,14 +105,26 @@ export function readParams(): GrowthParams | null {
       'Ring weights must be a comma-separated list of numbers >= 0.';
     return null;
   }
+  if (!Object.values(GrowthFunction).includes(growthFunction)) {
+    paramsError.textContent = 'Growth function must be a recognized option.';
+    return null;
+  }
 
   paramsError.textContent = '';
-  return { growthTarget, growthWidth, timeStep, kernelRadius, ringWeights };
+  return {
+    growthTarget,
+    growthWidth,
+    timeStep,
+    kernelRadius,
+    ringWeights,
+    growthFunction,
+  };
 }
 
 /** Calls `onChange` on every edit to any params field, so a running universe can be kept live in sync. */
 export function setupParamsSync(onChange: () => void) {
   for (const input of [
+    growthFunctionSelect,
     growthTargetInput,
     growthWidthInput,
     timeStepInput,
