@@ -110,12 +110,12 @@ const UPPERCASE_A: u16 = 'A' as u16;
 /// `.`/`b` and `o` are the two-state Life shorthand (0 and 255), and any other
 /// unprefixed letter is a state 1-24 (`A` = 1, `X` = 24).
 fn char_to_value(prefix: Option<char>, ch: char) -> u16 {
-    if let Some(prefix) = prefix {
-        if ('A'..='X').contains(&ch) {
-            let prefix = prefix as u16;
-            let ch = ch as u16;
-            return (prefix - LOWERCASE_P) * 24 + (ch - UPPERCASE_A + 25);
-        }
+    if let Some(prefix) = prefix
+        && ('A'..='X').contains(&ch)
+    {
+        let prefix = prefix as u16;
+        let ch = ch as u16;
+        return (prefix - LOWERCASE_P) * 24 + (ch - UPPERCASE_A + 25);
     }
 
     if ch == '.' || ch == 'b' {
