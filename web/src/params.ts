@@ -1,4 +1,4 @@
-import { GrowthFunction, type Universe } from './wasm/sim';
+import { GrowthFunction, KernelFunction, type Universe } from './wasm/sim';
 
 export interface GrowthParams {
   growthTarget: number;
@@ -7,10 +7,13 @@ export interface GrowthParams {
   kernelRadius: number;
   ringWeights: Float32Array;
   growthFunction: GrowthFunction;
+  kernelFunction: KernelFunction;
 }
 
 const growthFunctionSelect =
   document.querySelector<HTMLSelectElement>('#growth-function')!;
+const kernelFunctionSelect =
+  document.querySelector<HTMLSelectElement>('#kernel-function')!;
 const growthTargetInput =
   document.querySelector<HTMLInputElement>('#growth-target')!;
 const growthWidthInput =
@@ -30,6 +33,7 @@ const defaultParams: GrowthParams = {
   kernelRadius: 10,
   ringWeights: new Float32Array([1.0]),
   growthFunction: GrowthFunction.Gaussian,
+  kernelFunction: KernelFunction.Exponential,
 };
 
 export function loadInitialParams() {
@@ -44,6 +48,7 @@ export function pushParams(params: GrowthParams, universe: Universe) {
   universe.set_kernel_radius(params.kernelRadius);
   universe.set_ring_weights(params.ringWeights);
   universe.set_growth_function(params.growthFunction);
+  universe.set_kernel_function(params.kernelFunction);
 }
 
 /** Writes `params` onto the form's inputs, the inverse of `readParams` — used when a species preset supplies its own kernel/growth params. */
@@ -54,6 +59,7 @@ export function applyParams(params: GrowthParams) {
   kernelRadiusInput.value = String(params.kernelRadius);
   ringWeightsInput.value = Array.from(params.ringWeights).join(', ');
   growthFunctionSelect.value = String(params.growthFunction);
+  kernelFunctionSelect.value = String(params.kernelFunction);
   paramsError.textContent = '';
 }
 
@@ -78,6 +84,7 @@ export function readParams(): GrowthParams | null {
   const kernelRadius = kernelRadiusInput.valueAsNumber;
   const ringWeights = parseRingWeights(ringWeightsInput.value);
   const growthFunction = Number(growthFunctionSelect.value) as GrowthFunction;
+  const kernelFunction = Number(kernelFunctionSelect.value) as KernelFunction;
 
   if (!Number.isFinite(growthTarget) || growthTarget < 0 || growthTarget > 1) {
     paramsError.textContent = 'Growth target must be a number between 0 and 1.';
@@ -109,6 +116,10 @@ export function readParams(): GrowthParams | null {
     paramsError.textContent = 'Growth function must be a recognized option.';
     return null;
   }
+  if (!Object.values(KernelFunction).includes(kernelFunction)) {
+    paramsError.textContent = 'Kernel function must be a recognized option.';
+    return null;
+  }
 
   paramsError.textContent = '';
   return {
@@ -118,6 +129,7 @@ export function readParams(): GrowthParams | null {
     kernelRadius,
     ringWeights,
     growthFunction,
+    kernelFunction,
   };
 }
 
@@ -125,6 +137,7 @@ export function readParams(): GrowthParams | null {
 export function setupParamsSync(onChange: () => void) {
   for (const input of [
     growthFunctionSelect,
+    kernelFunctionSelect,
     growthTargetInput,
     growthWidthInput,
     timeStepInput,

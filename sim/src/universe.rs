@@ -5,6 +5,10 @@ use wasm_bindgen::prelude::*;
 
 use crate::fft_convolution::FftConvolver;
 use crate::growth::*;
+use crate::kernel::{
+    compute_exponential_kernel_core, compute_polynomial_kernel_core, compute_staircase_kernel_core,
+    compute_step_kernel_core,
+};
 use crate::rle;
 
 /// Packed RGBA pixel. `#[repr(C)]` pins the field layout so `Universe::get_ptr`
@@ -25,6 +29,38 @@ pub enum GrowthFunction {
     Polynomial = 1,
     Gaussian = 2,
     Step = 3,
+}
+
+/// Which kernel-core shape [`crate::kernel::generate_kernel_matrix`] rasterizes
+/// into the convolution kernel — the four variants Lenia's `kn` selects
+/// between (see [`crate::kernel`]). Numeric values match Chan's own `kn`
+/// convention (`kernel_core[kn - 1]` in `LeniaND.py`) so a value read
+/// straight off an imported pattern's `kn` field selects the right variant.
+///
+/// Unlike [`GrowthFunction`], which is evaluated fresh every
+/// [`Universe::tick`], the kernel is only rasterized and FFT'd once and then
+/// cached (see [`FftConvolver`]) — so changing `kn` isn't a trivial field
+/// swap, it must go through the same kernel-rebuild path as
+/// [`Universe::set_kernel_radius`]/[`Universe::set_ring_weights`] (see
+/// [`Universe::set_kernel_function`]).
+#[repr(C)]
+#[derive(Clone, Copy)]
+#[wasm_bindgen]
+pub enum KernelFunction {
+    Polynomial = 1,
+    Exponential = 2,
+    Step = 3,
+    Staircase = 4,
+}
+
+/// Resolves a [`KernelFunction`] to the [`crate::kernel`] function it selects.
+fn kernel_core_fn(kernel_function: KernelFunction) -> fn(f32) -> f32 {
+    match kernel_function {
+        KernelFunction::Polynomial => compute_polynomial_kernel_core,
+        KernelFunction::Exponential => compute_exponential_kernel_core,
+        KernelFunction::Step => compute_step_kernel_core,
+        KernelFunction::Staircase => compute_staircase_kernel_core,
+    }
 }
 
 /// A Lenia grid: cell states plus the precomputed kernel convolved over them
@@ -50,6 +86,7 @@ pub struct Universe {
     growth_width: f32,
     time_step: f32,
     growth_function: GrowthFunction,
+    kernel_function: KernelFunction,
 }
 
 #[wasm_bindgen]
@@ -68,12 +105,19 @@ impl Universe {
         growth_width: f32,
         time_step: f32,
         growth_function: GrowthFunction,
+        kernel_function: KernelFunction,
     ) -> Universe {
         let cell_states = vec![0.0; width * height];
         let buffer_cell_states = vec![0.0; width * height];
         let colors = vec![Rgba(0u8, 0u8, 0u8, 0u8); width * height];
 
-        let fft_convolver = FftConvolver::new(width, height, kernel_radius, ring_weights);
+        let fft_convolver = FftConvolver::new(
+            width,
+            height,
+            kernel_radius,
+            ring_weights,
+            kernel_core_fn(kernel_function),
+        );
 
         let mut universe = Universe {
             cell_states,
@@ -88,6 +132,7 @@ impl Universe {
             growth_width,
             time_step,
             growth_function,
+            kernel_function,
         };
         universe.update_colors();
         universe
@@ -118,19 +163,38 @@ impl Universe {
     }
 
     /// Sets the kernel's radius (in cells) and regenerates it from the
-    /// current ring weights, applied starting next [`Self::tick`].
+    /// current ring weights and kernel function, applied starting next
+    /// [`Self::tick`].
     pub fn set_kernel_radius(&mut self, kernel_radius: usize) {
         self.kernel_radius = kernel_radius;
-        self.fft_convolver
-            .set_kernel(self.kernel_radius, &self.ring_weights);
+        self.fft_convolver.set_kernel(
+            self.kernel_radius,
+            &self.ring_weights,
+            kernel_core_fn(self.kernel_function),
+        );
     }
 
     /// Sets the kernel's ring weights and regenerates it at the current
-    /// radius, applied starting next [`Self::tick`].
+    /// radius and kernel function, applied starting next [`Self::tick`].
     pub fn set_ring_weights(&mut self, ring_weights: &[f32]) {
         self.ring_weights = ring_weights.to_vec();
-        self.fft_convolver
-            .set_kernel(self.kernel_radius, &self.ring_weights);
+        self.fft_convolver.set_kernel(
+            self.kernel_radius,
+            &self.ring_weights,
+            kernel_core_fn(self.kernel_function),
+        );
+    }
+
+    /// Sets which kernel-core shape the convolution kernel uses and
+    /// regenerates it at the current radius/ring weights, applied starting
+    /// next [`Self::tick`].
+    pub fn set_kernel_function(&mut self, kernel_function: KernelFunction) {
+        self.kernel_function = kernel_function;
+        self.fft_convolver.set_kernel(
+            self.kernel_radius,
+            &self.ring_weights,
+            kernel_core_fn(self.kernel_function),
+        );
     }
 
     /// Clears the grid and places a rectangular pattern of continuous cell
@@ -280,12 +344,23 @@ mod tests {
             0.015,
             0.1,
             GrowthFunction::Gaussian,
+            KernelFunction::Exponential,
         )
     }
 
     #[test]
     fn new_seeds_colors_for_a_dead_grid() {
-        let universe = Universe::new(2, 2, 1, &[1.0], 0.15, 0.015, 0.1, GrowthFunction::Gaussian);
+        let universe = Universe::new(
+            2,
+            2,
+            1,
+            &[1.0],
+            0.15,
+            0.015,
+            0.1,
+            GrowthFunction::Gaussian,
+            KernelFunction::Exponential,
+        );
 
         for color in &universe.colors {
             assert_eq!((color.0, color.1, color.2, color.3), (0, 0, 0, 255));
@@ -382,8 +457,17 @@ mod tests {
 
     #[test]
     fn tick_keeps_state_and_colors_within_valid_ranges() {
-        let mut universe =
-            Universe::new(4, 4, 1, &[1.0], 0.15, 0.015, 0.1, GrowthFunction::Gaussian);
+        let mut universe = Universe::new(
+            4,
+            4,
+            1,
+            &[1.0],
+            0.15,
+            0.015,
+            0.1,
+            GrowthFunction::Gaussian,
+            KernelFunction::Exponential,
+        );
         universe.cell_states[5] = 0.8;
 
         universe.tick();
@@ -396,5 +480,40 @@ mod tests {
                 .all(|&s| (0.0..=1.0).contains(&s))
         );
         assert!(universe.colors.iter().all(|color| color.3 == 255));
+    }
+
+    #[test]
+    fn set_kernel_function_rebuilds_the_cached_kernel() {
+        // Two identically-seeded universes, one left at its default kernel
+        // function and one switched via `set_kernel_function` before
+        // ticking, should diverge — proving the setter actually rebuilds
+        // `fft_convolver`'s cached kernel FFT rather than leaving the
+        // previous shape in place. A non-zero kernel radius is needed here
+        // (unlike `make_universe`'s radius-0 default) so the two core
+        // shapes actually rasterize into different weights.
+        fn make(width: usize, height: usize) -> Universe {
+            Universe::new(
+                width,
+                height,
+                2,
+                &[1.0],
+                0.15,
+                0.015,
+                0.1,
+                GrowthFunction::Gaussian,
+                KernelFunction::Exponential,
+            )
+        }
+
+        let mut exponential = make(6, 6);
+        exponential.cell_states[14] = 0.8;
+        exponential.tick();
+
+        let mut polynomial = make(6, 6);
+        polynomial.set_kernel_function(KernelFunction::Polynomial);
+        polynomial.cell_states[14] = 0.8;
+        polynomial.tick();
+
+        assert_ne!(exponential.cell_states, polynomial.cell_states);
     }
 }

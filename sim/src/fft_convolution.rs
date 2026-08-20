@@ -18,6 +18,8 @@ use rustfft::num_complex::Complex;
 use rustfft::{Fft, FftPlanner};
 
 use crate::grid::wrap_coordinate;
+#[cfg(test)]
+use crate::kernel::compute_exponential_kernel_core;
 use crate::kernel::generate_kernel_matrix;
 
 /// Runs `fft` over every `row_len`-sized chunk of `data` independently.
@@ -54,13 +56,14 @@ pub(crate) struct FftConvolver {
 
 impl FftConvolver {
     /// Builds a convolver for a `width` x `height` grid with a kernel of
-    /// radius `kernel_radius` shaped by `ring_weights` (see
-    /// [`generate_kernel_matrix`]).
+    /// radius `kernel_radius` shaped by `ring_weights` and `kernel_core`
+    /// (see [`generate_kernel_matrix`]).
     pub(crate) fn new(
         width: usize,
         height: usize,
         kernel_radius: usize,
         ring_weights: &[f32],
+        kernel_core: fn(f32) -> f32,
     ) -> Self {
         let mut planner = FftPlanner::new();
         let cell_count = width * height;
@@ -76,14 +79,20 @@ impl FftConvolver {
             scratch_b: vec![Complex::new(0.0, 0.0); cell_count],
             kernel_fft: vec![Complex::new(0.0, 0.0); cell_count],
         };
-        convolver.set_kernel(kernel_radius, ring_weights);
+        convolver.set_kernel(kernel_radius, ring_weights, kernel_core);
         convolver
     }
 
-    /// Regenerates the kernel from `kernel_radius`/`ring_weights` and
-    /// recomputes its cached FFT, applied starting next [`Self::convolve`].
-    pub(crate) fn set_kernel(&mut self, kernel_radius: usize, ring_weights: &[f32]) {
-        let (kernel, _) = generate_kernel_matrix(kernel_radius, ring_weights);
+    /// Regenerates the kernel from `kernel_radius`/`ring_weights`/
+    /// `kernel_core` and recomputes its cached FFT, applied starting next
+    /// [`Self::convolve`].
+    pub(crate) fn set_kernel(
+        &mut self,
+        kernel_radius: usize,
+        ring_weights: &[f32],
+        kernel_core: fn(f32) -> f32,
+    ) {
+        let (kernel, _) = generate_kernel_matrix(kernel_radius, ring_weights, kernel_core);
         self.set_kernel_from_matrix(&kernel, kernel_radius);
     }
 
@@ -191,7 +200,8 @@ mod tests {
         kernel_radius: usize,
         kernel: Vec<f32>,
     ) -> FftConvolver {
-        let mut convolver = FftConvolver::new(width, height, 0, &[1.0]);
+        let mut convolver =
+            FftConvolver::new(width, height, 0, &[1.0], compute_exponential_kernel_core);
         convolver.set_kernel_from_matrix(&kernel, kernel_radius);
         convolver
     }
@@ -267,7 +277,11 @@ mod tests {
         let width = 8;
         let height = 8;
         let kernel_radius = 2;
-        let (kernel, kernel_size) = generate_kernel_matrix(kernel_radius, &[1.0, 0.6, 0.3]);
+        let (kernel, kernel_size) = generate_kernel_matrix(
+            kernel_radius,
+            &[1.0, 0.6, 0.3],
+            compute_exponential_kernel_core,
+        );
 
         let cell_states: Vec<f32> = (0..width * height)
             .map(|i| ((i as f32) * 0.037).sin().abs())

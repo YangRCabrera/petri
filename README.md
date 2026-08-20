@@ -25,9 +25,10 @@ same as you'd treat a missing test.
 - Import your own pattern — paste RLE cell data or choose a `.rle` file
   and it seeds the running simulation, with a clear error if it can't
   be parsed instead of silently doing nothing.
-- Tune growth target/width, time step, kernel radius, and ring weights
-  from a live sidebar — invalid input is rejected with an inline error,
-  valid edits apply to the running simulation immediately.
+- Tune growth/kernel function, growth target/width, time step, kernel
+  radius, and ring weights from a live sidebar — invalid input is
+  rejected with an inline error, valid edits apply to the running
+  simulation immediately.
 - Press <kbd>Enter</kbd> to pause/resume; a tick-duration readout shows
   how the simulation step is tracking against the frame budget.
 

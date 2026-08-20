@@ -112,9 +112,24 @@ target), Gaussian (`gn=2`, smooth asymptotic falloff, never quite reaching
 grows a cell and potential far from it decays it. `universe.rs`'s
 `GrowthFunction` enum (wasm-bindgen-exposed, so JS passes it straight
 through `Universe::new`/`set_growth_function`) picks which one
-`apply_growth` evaluates each tick; `kernel.rs`'s `kernel_core` is still
-the one hard-coded exponential/Gaussian-bump shape — Chan's `kn=2`, not
-`kn=1` (see "Not yet, but on the radar").
+`apply_growth` evaluates each tick.
+
+`sim/src/kernel.rs` mirrors that same numbered-variant pattern for Lenia's
+four `kn` kernel-core shapes — Polynomial (`kn=1`, the "quad4" bump
+`(4r(1-r))^4`), Exponential (`kn=2`, the smooth `exp(4 - 1/(r(1-r)))` bump
+this crate hard-coded before `kn` became selectable), Step (`kn=3`, a hard
+`[0.25, 0.75]` cutoff), Staircase (`kn=4`, `kn=3`'s step but `0.5` instead
+of `0.0` below the cutoff — the one shape with a non-zero value at the
+ring's center). `kernel_shell`/`generate_kernel_matrix` take the selected
+core as a plain `fn(f32) -> f32`, keeping `kernel.rs` itself as unaware of
+`universe.rs`'s `KernelFunction` enum as `growth.rs` is of
+`GrowthFunction` — `universe.rs`'s private `kernel_core_fn` is the only
+place that matches the enum to a function. Unlike `GrowthFunction`, whose
+setter is a trivial field swap (growth is evaluated fresh every tick),
+`KernelFunction`'s setter (`Universe::set_kernel_function`) must rebuild
+the cached kernel FFT — the same `FftConvolver::set_kernel` rebuild
+`set_kernel_radius`/`set_ring_weights` already trigger — since the kernel
+is rasterized and FFT'd once, not recomputed per tick.
 
 `scripts/vercel-build.sh` exists because Vercel's build image has no
 Rust toolchain — it installs `rustup` + `wasm-pack` (skipping the
@@ -131,8 +146,9 @@ the frame budget (EMA-smoothed) and reporting it into `#tick-duration`;
 `setupLifetime` wraps `requestAnimationFrame` with FPS throttling and
 pause/resume.
 
-`web/src/params.ts` owns the params form (`#params-form`'s growth
-target/width, time step, kernel radius, ring weights inputs): reading
+`web/src/params.ts` owns the params form (`#params-form`'s growth/kernel
+function selects, growth target/width, time step, kernel radius, ring
+weights inputs): reading
 and validating its current values (`readParams`, writing failures to
 `#params-error`), pushing a validated `GrowthParams` onto a `Universe`
 (`pushParams`), and wiring live re-sync on every input edit
@@ -212,8 +228,9 @@ writing any thrown error into `#rle-error`.
 
 `sim` has unit tests (`#[cfg(test)] mod tests` alongside the code they
 cover, in `kernel.rs`, `growth.rs`, `grid.rs`, `universe.rs`,
-`fft_convolution.rs`, and `rle.rs`) for the Lenia math itself: kernel
-core/shell shape and normalization, each of the three growth mappings'
+`fft_convolution.rs`, and `rle.rs`) for the Lenia math itself: each of the
+four kernel-core shapes' peak/symmetry/bounds plus kernel shell/matrix
+shape, normalization, and dispatch, each of the three growth mappings'
 peak/symmetry/decay, toroidal coordinate wrapping, the `Universe` update
 loop (buffer swap, color mapping, growth clamping, `load_rle`
 decode/place/error-without-clearing), `FftConvolver`'s convolution
@@ -260,9 +277,8 @@ Delete a bullet the day it actually gets built — don't let it go stale.
   always returns hardcoded defaults) — waiting on the Cloudflare Workers
   backend/share-link design, so there's a real target to encode/decode
   against instead of guessing a URL scheme now.
-- Selectable kernel-core shapes (`kernel.rs`'s `kernel_core` is still one
-  hard-coded exponential/Gaussian-bump formula — Chan's `kn=2` — unlike
-  `growth.rs`'s now-selectable Polynomial/Gaussian/Step growth mappings)
-  — RLE import exposed that an imported pattern authored against a
-  different kernel shape (`kn != 2`) from the wider Lenia family can't
-  reproduce faithfully here yet.
+- Parsing `gn`/`kn` (or any other Lenia param) out of an RLE header's
+  `rule = Lenia(...)` segment (`rle.rs`'s `strip_header` discards the
+  whole `rule = ..` line unconditionally) — an imported pattern still
+  reproduces faithfully today by picking the matching growth/kernel
+  function in the form first, this would just save that manual step.
